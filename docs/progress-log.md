@@ -477,3 +477,11 @@ ultrawide (21:9) monitor - content spreads edge-to-edge with no constraint.
 Asked for a coherent layout with content constrained toward the center of the
 screen, closer to what a component-library-driven layout (like Nuxt UI) gives
 by default.
+
+### [Progress] Links list screen built
+Paginated table view of `GET /api/links` - name, short link, truncated
+destination, status badge (mapped from the shared `LinkStatus` type to
+distinct badge variants per status), click count, with prev/next pagination.
+Verified against the 200-link seeded dataset in a real browser: correct
+pagination counts (203 total / 11 pages), status badges rendering correctly
+across all four states, and click-through to a link's detail route working.
