@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { shortCodeSchema, shortCodeLengthSchema } from "./short-code";
+import { shortCodeSchema, shortCodeLengthSchema } from "./short-code.js";
 
 /** Shared by the create-link form (react-hook-form + zodResolver) and the Nest ZodValidationPipe. */
 export const createLinkSchema = z
