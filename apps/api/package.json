@@ -17,6 +17,7 @@
     "cli": "node dist/cli.js",
     "lint": "oxlint src/ test/",
     "seed": "node dist/scripts/seed.js",
+    "seed:links": "node dist/scripts/seed-links.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
