@@ -245,3 +245,33 @@ both domain rows landed correctly via `psql`, booted the Nest API and hit
 Commit: `cdcb2cd` — "feat(api): scaffold NestJS app with Drizzle/Postgres, health
 check, domain seed script"
 
+### [Progress] Step 3 — token CLI, domain:add CLI, session-cookie auth
+Built the `ApiTokensService` (hash-only storage, `sha256` over a `crypto.randomBytes`
+token — plaintext shown once), the `token:create` and `domain:add` `nest-commander`
+CLI commands (both run inside Nest's DI container, reusing the exact same services
+the HTTP layer uses), the signed opaque `SessionCodec` (HMAC-signed cookie payload,
+no `sessions` table needed — see plan §2.1), the `SessionAuthGuard`, and the
+`AuthController` (`POST /api/auth/session`, `POST /api/auth/logout`,
+`GET /api/auth/session`) plus a first protected endpoint (`GET /api/domains`) to
+prove the guard actually gates something.
+
+Real gotcha hit and fixed: `tsx` (esbuild-based) doesn't emit the
+`design:paramtypes` decorator metadata Nest's DI container needs, so running the
+CLI via `tsx src/cli.ts` silently failed instance resolution with no useful error
+at the top level. Switched the `cli`/`seed` package scripts to run the real
+`tsc`-compiled `dist/` output instead (`node dist/cli.js`) — same fix needed for
+`packages/shared`'s `package.json` `exports`, which pointed straight at `src/*.ts`
+(fine for `tsx`/bundler resolution, but plain `node` running compiled JS needs a
+real `dist/index.js`), so that package now builds to `dist` and is consumed from
+there.
+
+Verified for real: ran `token:create`, confirmed only a 64-char hash landed in
+`api_tokens` (never the plaintext) via `psql`; ran `domain:add` for a third
+domain, confirmed via `psql`; booted the API and drove the full auth lifecycle
+with `curl`: bad token → 401, real token → 201 with a genuine `HttpOnly;
+SameSite=Lax` `Set-Cookie`, `GET /api/domains` without the cookie → 401, with the
+cookie → 200 with the real seeded domain list, logout clears the cookie, and the
+same protected call after logout → 401 again. Clean `nest build` + `oxlint`.
+Commit: `13fbca4` — "feat(api): token CLI, domain:add CLI, session-cookie auth
+(guard + login/logout/session endpoints)"
+
