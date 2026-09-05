@@ -199,6 +199,27 @@ and project scope (brief names Nest, Nest's batteries match this project's actua
 needs, backend build time stays focused on what's genuinely new here). Renamed plan
 §2.3 to plain "Build/lint/format tooling" to keep the section framed purely as a
 build-tooling evaluation.
-Commit: pending (see below).
+Commit: `c6ffb8d` — "docs: reframe h3/nitro choice on requirement fit, drop
+familiarity/ecosystem framing from docs"
 
+---
+
+## Build phase — following the roadmap (plan §7)
+
+### [Steering] Start building
+User asked to start working according to the plan.
+
+### [Progress] Step 1 — monorepo skeleton + packages/shared
+Scaffolded `pnpm-workspace.yaml` (`apps/*`, `packages/*`), root `package.json` with
+workspace-wide scripts, `tsconfig.base.json` shared by all packages. Built out
+`packages/shared`: Zod schemas for short codes, domains, links (create/update/list/
+detail, including the compound custom-alias-vs-auto-length validation and the
+start-before-end-date refinement), click events, and the session/auth exchange;
+plus the `ofetch`-based `createApiClient` factory (credentials included, a single
+`onUnauthorized` hook point for 401s — no token ever touches JS-reachable storage,
+per the plan's cookie-session decision). Verified with `tsc -p tsconfig.json`,
+clean build (needed to add `"lib": ["DOM"]` since `ofetch`'s `FetchResponse` extends
+the native `Response` type).
+Commit: `ece272e` — "feat(shared): scaffold pnpm monorepo, packages/shared with Zod
+schemas + ofetch client shell"
 
