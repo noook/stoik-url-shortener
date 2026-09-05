@@ -2,7 +2,7 @@
 
 **Goal:** Build a URL shortener as a take-home technical assessment: React front-end (learning React as you go), NestJS + TypeScript back-end, Postgres via Drizzle, pnpm monorepo, Docker Compose, token auth, and a real (not hand-waved) answer to the short-code/domain uniqueness question.
 
-**Status:** Planning only, decisions round 2. Repo initialized at `~/work/url-shortener` (git init, `.gitignore`, stub `README.md`). No app code yet — a couple of deployment details left below before scaffolding starts.
+**Status:** Planning complete. All architectural decisions locked in (see §2). Repo initialized at `~/work/url-shortener` (git init, `.gitignore`, stub `README.md`). Ready to scaffold — only a couple of low-stakes naming/config details remain (§4), to be settled during the build, not before it.
 
 **Mode note:** unlike a typical delegated build, the user will be writing the React code themselves to learn it, with the agent pairing/reviewing rather than autonomously generating the whole frontend. Backend/infra can be scaffolded more directly since the user is already comfortable there.
 
@@ -40,7 +40,9 @@
 | UI library | **shadcn/ui** (Radix + Tailwind, code copied into repo — best for learning) |
 | Frontend scope | 4 screens: **token login**, **links list (paginated)**, **link detail** (click logs / analytics), **create link form → redirects to that link's detail page on success** |
 | Multi-domain / uniqueness | **Implemented for real**: seed 2+ domains, create-link form lets you pick a target domain, so `(domain_id, short_code)` conflict handling is demonstrably live, not just an ADR |
-| Deployment | Homelab (self-hosted, Docker Compose) for the API + Postgres; frontend either on homelab too or Cloudflare (static hosting) — **subdomain/hosting split still to confirm below** |
+| Deployment | Everything self-hosted on the homelab, single Docker Compose stack: API, Postgres, and the built React app all live there, no Cloudflare split |
+| Domains | Two real `*.nook.sh` subdomains as the seeded "link domains" (e.g. `go1.nook.sh` / `go2.nook.sh`, exact names TBD), routed through the existing Traefik + Tartiflette tunnel setup; a separate public `*.nook.sh` subdomain serves the React app |
+| Token storage | Real httpOnly-cookie session (see §2.1) — no SSR needed for this, it's just the API setting `Set-Cookie` on login and the SPA calling `fetch` with `credentials: 'include'` afterward |
 | Testing | Solid core + targeted tests: redirect resolution, `(domain, code)` conflict handling, token auth guard — not a full suite |
 
 ### 2.1 Frontend screens, detailed
@@ -50,7 +52,12 @@
 3. **Link detail** — full link info + edit (name, dates, active toggle) + a click log view (ip, user agent, referrer, timestamp) with basic aggregates (total clicks, last click). This is the "analytics" surface.
 4. **Create link** — form: destination URL, name (optional, defaults to the URL), domain picker (the 2+ seeded domains), custom alias (optional) or auto-generate with a configurable length, start/end date (optional). On success, navigate to that link's detail page.
 
-**Token storage:** recommending **not** plain `localStorage`. Proposal: keep the token in a React context (in-memory) as the source of truth for API calls, and persist it to `sessionStorage` only so a page refresh doesn't force re-login (cleared when the tab closes). This is a meaningful step up from `localStorage` (no long-lived persistence across browser restarts) while staying simple — still XSS-exposed like any client-stored token, so it's not pretending to be bulletproof. A truly secure version (backend-issued httpOnly cookie session, CSRF handling) is a valid stretch goal to *mention* in the README as "how I'd harden this further" but adds real complexity (server-side session store, CSRF token dance) that's arguably out of scope for a bearer-token CLI-provisioning model. Flag if you'd rather go the httpOnly-cookie route for real instead of just discussing it.
+**Token storage: httpOnly-cookie session (decided).** The CLI-provisioned bearer token is what proves a person *may* create a session, but the browser never touches it directly:
+
+- `POST /api/auth/session` (login screen) takes the pasted CLI token, validates it against `api_tokens`, and on success sets a **separate, short-lived session cookie** — `HttpOnly`, `Secure`, `SameSite=Lax` (or `Strict`), `Domain=.nook.sh` so it's shared correctly across the app subdomain and the API subdomain since both live under `*.nook.sh` — this makes it same-site for cookie purposes despite being different hostnames, so `SameSite=Lax/Strict` is enough without needing `SameSite=None` + full CSRF-token machinery. A lightweight CSRF check (e.g. a custom header the browser can't be tricked into sending cross-site, like `X-Requested-With`) on state-changing requests is still cheap insurance.
+- The session is server-side state (a `sessions` table or a signed/opaque cookie value looked up server-side — signed opaque cookie is simplest here, no extra table needed), separate from the long-lived CLI token itself. Logout just clears the cookie (and server-side session row, if using one).
+- The React app never stores the token or session id in JS-reachable storage at all (no `localStorage`/`sessionStorage`) — every API call goes out with `fetch(..., { credentials: 'include' })` and the browser handles the cookie. This is meaningfully more secure against XSS token theft than any `localStorage`/`sessionStorage` approach, and doesn't require SSR — it's a plain SPA talking to a cookie-issuing API, same pattern as any traditional session-cookie web app.
+- Because frontend and API are on different `*.nook.sh` subdomains but the same registrable domain, CORS still needs `credentials: true` + an explicit `Access-Control-Allow-Origin` (the frontend's exact origin, not `*`) on the API side for cookies to flow.
 
 ---
 
@@ -130,13 +137,11 @@ url-shortener/
 
 ---
 
-## 4. Open questions (still blocking scaffolding)
+## 4. Remaining open questions (non-blocking, can be decided during build)
 
-1. **Deployment split** — for the two seeded domains and the general hosting:
-   - Run API + Postgres on the homelab (matches your existing `docker-host` LXC / Traefik / Compose setup), and the React frontend either (a) also on the homelab as a static file served by the same Compose stack, or (b) on Cloudflare Pages/Workers hitting the homelab API over the public `*.nook.sh`-style tunnel domain?
-   - What subdomains should the two seeded "link domains" actually be? (e.g. two short subdomains you own, or is this purely a demo concept not meant to use real public domains?)
-2. **Token storage approach** — comfortable with the in-memory + `sessionStorage` compromise described in §2.1, or do you want to go further and implement a real httpOnly-cookie session exchange (more secure, more moving parts) rather than just mentioning it as a stretch goal?
-3. **CORS / API exposure** — if the frontend ends up on Cloudflare while the API stays on the homelab, the API needs to be reachable from the public internet (through your existing Tartiflette tunnel + Traefik) with CORS configured for the Cloudflare origin. Fine to add a new Traefik-routed subdomain for this, following the pattern from your other homelab services?
+1. **Exact subdomain names** for the two seeded link domains and the frontend (e.g. `go1.nook.sh` / `go2.nook.sh` / `shorten.nook.sh` — placeholders, pick real ones whenever convenient, easy to change later since they're just seed data + a Traefik label).
+2. **Homelab Compose integration** — add this as a new stack under `/opt/stacks/` alongside the existing `traefik`/`cloudflared`/`umami` setup, with new Traefik labels for the 2 API subdomains + 1 frontend subdomain, routed through the active "Tartiflette" tunnel. Since the user's homelab access is read-only/no-sudo via `docker-host-lan`, the actual privileged deploy step (`docker compose up` on the host) will need to be run by the user, not the agent — matches the existing arrangement for other homelab services.
+3. **CSRF header enforcement detail** — confirm during API build whether a custom-header check is enough or you'd rather add a proper double-submit CSRF token; flagged as a small implementation-time decision, not a design blocker.
 
 ## 5. Non-blocking defaults (will proceed with these unless you object)
 
@@ -156,8 +161,8 @@ url-shortener/
 4. `POST /api/links` + `GET /:code` redirect (host-aware) — the minimal end-to-end slice, tested with `curl` against both seeded domains before touching the frontend.
 5. Remaining CRUD endpoints + click logging + click-log pagination endpoint.
 6. Scaffold `apps/web`: Vite + React + Tailwind + shadcn/ui; build the 4 screens against the shared schema and the real API (this is the main "learn React" stretch — pairing mode, not autonomous generation). Suggested build order: login → create (redirect to detail) → detail → list.
-7. Docker Compose for the full stack; verify a clean `docker compose up` from scratch works locally.
-8. Deploy per the answer to Q1 (homelab-only or homelab API + Cloudflare frontend); Traefik labels / tunnel routing / CORS as needed.
+7. Docker Compose for the full stack (API, Postgres, built React app all in one homelab Compose stack); verify a clean `docker compose up` from scratch works locally.
+8. Deploy to the homelab: new stack under `/opt/stacks/`, Traefik labels for the 2 API-domain subdomains + 1 frontend subdomain, routed through the existing Tartiflette tunnel. Since agent homelab access is read-only, the user runs the actual privileged `docker compose up` there.
 9. `docs/adr/0001-domain-and-shortcode-uniqueness.md` write-up + top-level README (endpoints, setup, token generation, architecture rationale, hardening notes e.g. the token-storage tradeoff) — this doc is a big part of what a recruiter actually reads.
 10. Targeted test pass: redirect resolution (incl. cross-domain same-code case), `(domain, code)` conflict → 409, auth guard rejects missing/invalid/revoked tokens.
 
