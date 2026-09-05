@@ -39,7 +39,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "ufo": "^1.6.4",
-    "zod": "^3.25.76"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

@@ -4,9 +4,9 @@ import { shortCodeSchema, shortCodeLengthSchema } from "./short-code.js";
 /** Shared by the create-link form (react-hook-form + zodResolver) and the Nest ZodValidationPipe. */
 export const createLinkSchema = z
   .object({
-    destinationUrl: z.string().url("Must be a valid URL"),
+    destinationUrl: z.url("Must be a valid URL"),
     name: z.string().trim().min(1).max(200).optional(),
-    domainId: z.string().uuid("Pick a domain"),
+    domainId: z.uuid("Pick a domain"),
     startAt: z.coerce.date().optional(),
     endAt: z.coerce.date().optional(),
   })
@@ -39,12 +39,12 @@ export const linkStatusSchema = z.enum(["active", "scheduled", "expired", "inact
 export type LinkStatus = z.infer<typeof linkStatusSchema>;
 
 export const linkSchema = z.object({
-  id: z.string().uuid(),
-  domainId: z.string().uuid(),
+  id: z.uuid(),
+  domainId: z.uuid(),
   domainHostname: z.string(),
   shortCode: shortCodeSchema,
   name: z.string(),
-  destinationUrl: z.string().url(),
+  destinationUrl: z.url(),
   startAt: z.coerce.date().nullable(),
   endAt: z.coerce.date().nullable(),
   isActive: z.boolean(),
@@ -64,7 +64,7 @@ export const linkPageSchema = z.object({
 export type LinkPage = z.infer<typeof linkPageSchema>;
 
 export const checkAliasQuerySchema = z.object({
-  domainId: z.string().uuid(),
+  domainId: z.uuid(),
   alias: shortCodeSchema,
 });
 export const checkAliasResponseSchema = z.object({ available: z.boolean() });

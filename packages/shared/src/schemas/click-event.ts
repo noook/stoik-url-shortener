@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const clickEventSchema = z.object({
-  id: z.string().uuid(),
-  linkId: z.string().uuid(),
+  id: z.uuid(),
+  linkId: z.uuid(),
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
   referrer: z.string().nullable(),

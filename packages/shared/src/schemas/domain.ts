@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const domainSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   hostname: z.string(),
   isDefault: z.boolean(),
 });
