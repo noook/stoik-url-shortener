@@ -7,5 +7,4 @@ build/
 *.log
 .DS_Store
 .turbo/
-pnpm-lock.yaml.bak
-coverage/
+*.tsbuildinfo
