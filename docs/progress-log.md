@@ -424,17 +424,6 @@ no session present.
 Commit: `51b529a` — "feat(web): shadcn/ui setup, unplugin-icons (lucide), app
 plumbing (auth context, route guard, layout, router, page stubs)"
 
-### [Steering] Dev servers requested to stay running in the background
-User asked for both dev servers (API `pnpm start:dev`, web `pnpm dev`) to be
-spun up in the background and kept running while pairing on the frontend,
-rather than starting/stopping them per verification round.
-
-### [Progress] Dev servers started
-Started `apps/api` in Nest watch mode and `apps/web` via Vite, both as
-persistent background processes, confirmed both actually serving traffic
-(`GET /health` returns real DB-backed `{"status":"ok"}`, `GET /` on the Vite
-dev server returns 200) rather than just reporting "started."
-
 ### [Steering] Login screen: shadcn's react-hook-form + Field pattern
 User pointed at shadcn's official React Hook Form guide
 (https://ui.shadcn.com/docs/forms/react-hook-form) and asked the agent to
@@ -465,4 +454,7 @@ not just at build time). Clean `vite build` + `tsc -b` + `oxlint` (only the
 same pre-existing warnings from earlier, nothing new).
 Commit: `e457637` — "feat(web): build login screen with react-hook-form +
 shadcn Field pattern"
+
+### [Answer] Login screen confirmed working
+User confirmed the login screen works after trying it themselves.
 
