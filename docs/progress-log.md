@@ -93,8 +93,8 @@ the recruiter later), and for commits to keep marking progress going forward. Al
 asked to:
 - use **ofetch** instead of the native `fetch` API,
 - use other **unjs** tools where relevant,
-- use **Vue-ecosystem** tools in the React app where they fit better than React's
-  usual defaults,
+- use tools coming from the **Vue ecosystem** where they fit better than React's
+  defaults,
 and asked a technical question: does a permanent (301) redirect still reach the
 server to log the click?
 
@@ -130,18 +130,68 @@ into the plan as an explicit decision (see plan v4).
 ### [Planning] Plan v4 — tooling substitutions + redirect status + doc requirements
 Updated the plan with: ofetch as the shared API client's HTTP layer, a short list of
 adopted/considered unjs utilities (`ufo`, `consola`; `unstorage`/`citty`/`h3`/`nitro`
-considered and explicitly not adopted, with reasons), `@unhead/react` in place of
-`react-helmet` for page titles (a Vue/Nuxt-ecosystem tool with official React
-bindings — the concrete, honest answer to "Vue tools where they fit," since plain
-VueUse composables don't port to React's different reactivity model), the `302`
-redirect decision, a `domain:add` CLI command mirroring `token:create`, and two new
-planned docs: one generic (`docs/adding-a-domain.md`, infra + app steps to point a
-new domain at a running instance) and one personal
-(`docs/homelab-deployment-notes.md`, explicitly marked as reflecting the user's own
-setup, not a project requirement).
-Commit: pending (see below).
+considered and explicitly not adopted, with reasons), the `302` redirect decision, a
+`domain:add` CLI command mirroring `token:create`, and two new planned docs: one
+generic (`docs/adding-a-domain.md`, infra + app steps to point a new domain at a
+running instance) and one personal (`docs/homelab-deployment-notes.md`, explicitly
+marked as reflecting the user's own setup, not a project requirement).
+Commit: `2927fae` — "docs: add progress log; adopt ofetch/unjs tooling, unhead, 302
+redirect decision; relocate under stoik/" (note: this commit's message and an earlier
+draft of the plan referenced `@unhead/react` as a "Vue-ecosystem tool for React" —
+that was a misreading of the user's actual request and was corrected in the next
+round, see below; the commit message itself is left as-is since rewriting published
+history isn't worth it for a wording slip, but the plan content it points to has
+since been corrected).
 
 ### [Progress] Repository relocated
 Moved the repo from `~/work/url-shortener` to `~/work/stoik/url-shortener` per the
 user's requested default naming (`stoik/url-shortener`, company name as parent
 folder). Git history carried over unaffected (a plain directory move, no rewrite).
+
+---
+
+## Later session — tooling correction round
+
+### [Steering] Correction: Nitro/h3 familiarity, per-tool rationale required, Vue-ecosystem scope clarified
+User corrected two things from the previous round:
+1. **Nitro/h3 familiarity**: the user is actually comfortable with Nitro+h3 (has
+   contributed to Nitro's tasks feature and its Nuxt DevTools integration) — Nest was
+   still the right call, but the earlier plan wording implied it was chosen partly
+   because Nitro would be unfamiliar, which wasn't accurate framing given the user's
+   real background.
+2. **Per-tool justification requested**: for every unjs tool mentioned, explain
+   concretely why it would or wouldn't be used — explicitly not "because it looks
+   cool," genuinely the right tool for the specific job or not.
+3. **Vue-ecosystem steering was misread.** The user clarified they meant *global
+   build tooling* — Vite over Webpack, VoidZero's toolchain (Rolldown, Oxc/oxlint,
+   Vitest) over the React community's usual defaults (Webpack/CRA-era tooling,
+   ESLint-only, etc.) — not literal Vue framework packages. The `@unhead/react`
+   suggestion from plan v4 was exactly the kind of over-reach this correction was
+   aimed at (a Vue/Nuxt-*origin* package, not build tooling) and has been **removed
+   from the plan entirely**, along with all "Vue-ecosystem" framing in favor of
+   "VoidZero/Vite-ecosystem" framing.
+
+### [Planning] Plan v5 — corrected tooling section, per-tool rationale, VoidZero/Vite section
+Rewrote plan §2.2 into an explicit per-tool pass over the unjs catalogue: `ofetch`
+(adopted — concrete `fetch` ergonomics win) and `ufo` (adopted, backend only — URL
+parsing correctness, matches h3/Nitro's own approach) both kept; `consola` narrowed
+to CLI-output-only scope, explicitly not replacing Nest's own request-lifecycle
+`Logger`; `unstorage` and `citty` reconsidered and still not adopted, each with a
+concrete reason tied to what the project actually needs rather than tool prestige;
+the `h3`/`nitro` framework question rewritten to reflect that this was a real,
+informed choice given the user's actual Nitro/h3 background, not a default-to-known
+crutch — Nest wins on requirement fit (brief names it explicitly) and batteries
+(DI, guards, `nest-commander`) for this specific scope, not on unfamiliarity with the
+alternative.
+
+Added new plan §2.3 for VoidZero/Vite-ecosystem tooling: Vite 8's Rolldown bundler
+(no separate decision needed, it's the default now), Vitest for frontend tests
+(shares Vite's pipeline, avoids a second toolchain), `oxlint` adopted as a fast
+first-pass linter paired with a slim `eslint-plugin-react-hooks`-only ESLint layer
+(oxlint's rule coverage for React hooks/type-aware checks isn't there yet, keeping
+that one gap covered rather than dropping hook-correctness checking), and Oxc's
+formatter (`oxfmt`) explicitly deferred — still beta, not worth formatting churn risk
+mid-assessment — using Prettier for now with a note to revisit once `oxfmt` is
+stable.
+Commit: pending (see below).
+
