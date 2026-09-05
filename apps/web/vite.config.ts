@@ -1,11 +1,18 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import Icons from 'unplugin-icons/vite'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Auto-imported, tree-shaken icon components: import HomeIcon from
+    // '~icons/lucide/home'. Lucide is the preferred icon set for this app.
+    Icons({ compiler: 'jsx', jsx: 'react' }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
