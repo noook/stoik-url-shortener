@@ -45,7 +45,6 @@ export const linkSchema = z.object({
   shortCode: shortCodeSchema,
   name: z.string(),
   destinationUrl: z.string().url(),
-  custom: z.boolean(),
   startAt: z.coerce.date().nullable(),
   endAt: z.coerce.date().nullable(),
   isActive: z.boolean(),

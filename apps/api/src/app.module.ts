@@ -4,6 +4,7 @@ import { AppController } from "./app.controller.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { DomainsModule } from "./domains/domains.module.js";
+import { LinksModule } from "./links/links.module.js";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { DomainsModule } from "./domains/domains.module.js";
     DatabaseModule,
     AuthModule,
     DomainsModule,
+    LinksModule,
   ],
   controllers: [AppController],
   providers: [],
