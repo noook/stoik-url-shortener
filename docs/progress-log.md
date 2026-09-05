@@ -275,3 +275,47 @@ same protected call after logout → 401 again. Clean `nest build` + `oxlint`.
 Commit: `13fbca4` — "feat(api): token CLI, domain:add CLI, session-cookie auth
 (guard + login/logout/session endpoints)"
 
+### [Steering] Three simplifications to the data model and auth
+User raised three points after reviewing the auth/data-model work:
+1. **Links don't belong to a token/creator.** An instance is provisioned for a
+   pool of people sharing access, not per-user accounts, so a link isn't really
+   "owned" by whichever token created it — it belongs to the instance as a
+   whole. `api_token_id` on `links` was unnecessary.
+2. **`custom` boolean on `links` is redundant.** A custom alias is just whatever
+   the person typed into the short-code field; the API already knows whether it
+   received an explicit code or generated one itself, at the moment of creation
+   — no separate stored flag needed for that.
+3. **The session layer was overkill.** The user's actual requirement was only
+   that the token be unreadable by page-side JavaScript — an httpOnly cookie
+   already gives that, whether it holds a signed session payload or the token
+   itself directly. Since the token is already long-lived server-side, there was
+   no separate expiry/rotation need that would have justified a session layer
+   on top.
+
+### [Planning] Plan revised: session-free auth, instance-scoped links
+Updated plan §2.1 (auth now: httpOnly cookie holds the actual API token, no
+signed session payload, no session-vs-token distinction, 30-day browser-side
+cookie lifetime, same guard also accepts a plain `Authorization: Bearer` header),
+added §2.1.1 explaining why `links` has no creator/ownership column, updated
+§4.2's data model (`links` drops `custom` and `api_token_id`), §4.3's auth guard
+description, and corrected the `unstorage` "not adopted" reasoning in §2.2 (there
+is no session-storage concern left to abstract at all, rather than "a table
+already solves it").
+
+### [Progress] Implemented the simplification
+Removed the `SessionCodec`/signed-cookie machinery entirely, replaced
+`SessionAuthGuard` with `ApiTokenAuthGuard` (reads the token straight from an
+httpOnly cookie or a bearer header, looks it up by hash — one guard, no session
+concept), simplified `AuthController` to just set/clear that cookie. Dropped
+`custom` and `api_token_id` from the `links` schema, generated and applied the
+Drizzle migration.
+
+Verified for real: ran the new migration against the dev Postgres, confirmed via
+`psql` that both columns are gone; rebuilt and re-ran the full auth lifecycle
+with `curl` — login sets a cookie containing the actual token, `GET /api/domains`
+works both via that cookie and via a raw `Authorization: Bearer` header, and
+fails with no auth at all. Clean `nest build` + `oxlint`.
+Commit: `f490c51` — "refactor(api): simplify auth to cookie-held token (no
+session layer), links belong to instance not creator, custom short codes are
+just user input"
+
