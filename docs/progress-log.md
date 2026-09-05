@@ -319,3 +319,45 @@ Commit: `f490c51` — "refactor(api): simplify auth to cookie-held token (no
 session layer), links belong to instance not creator, custom short codes are
 just user input"
 
+### [Progress] Step 4 — links CRUD, click logging, host-aware 302 redirect
+Built `LinksService` (create with alias-or-auto-generate path, `nanoid` +
+retry-on-conflict for generated codes, list/detail with click stats, update,
+soft-deactivate, alias availability check, and the redirect-resolution query
+keyed on `(hostname, short_code)`), `ClickEventsService` (fire-and-forget click
+recording, paginated click log), `LinksController` (full protected CRUD +
+`check-alias`), and the public, unauthenticated `RedirectController` handling
+`GET /:code` - always `302`, `404` for unknown codes, `410 Gone` for
+deactivated/expired links, `404` for not-yet-started (scheduled) links.
+
+This is the slice that actually proves the core assessment requirement live,
+not just on paper: created a link with alias `hello` on `go1.localhost`
+(destination A), created the *same* alias `hello` on `go2.localhost`
+(destination B) - both succeeded (201/201). Creating `hello` again on
+`go1.localhost` correctly failed with 409. `GET /hello` with
+`Host: go1.localhost` redirected (302) to destination A; the same path with
+`Host: go2.localhost` redirected (302) to destination B - genuine per-domain
+resolution, not a documented claim. Click count and last-click timestamp
+updated correctly after each redirect. Deactivating a link via `PATCH` then
+hitting its redirect returned `410 Gone` as designed.
+
+Two real issues hit and fixed along the way:
+- **Host-infra hiccup, not a code bug:** OrbStack's Docker daemon became
+  unresponsive mid-session (`docker ps` hung, the running API process stopped
+  answering requests). Restarted OrbStack, confirmed the Postgres container's
+  data survived (`docker start` on the same container, data intact), restarted
+  the API. Noting this since it's the kind of thing worth being aware of when
+  running through this locally, not an application defect.
+- **Nest `@UsePipes` at the method level applies to every parameter, not just
+  `@Body()`.** `PATCH /api/links/:id` had `@UsePipes(new ZodValidationPipe(...))`
+  on the method while also taking `@Param('id')` - the pipe ran against the
+  `id` string too, failing with a confusing "Expected object, received string"
+  on every request. Fixed by moving the pipe onto the `@Body()` parameter
+  decorator directly (`@Body(new ZodValidationPipe(schema)) body: unknown`)
+  instead of the method-level `@UsePipes`, which only matters when a handler
+  mixes a validated body with other params. Re-verified PATCH works correctly
+  after the fix.
+
+Clean `nest build` + `oxlint` after both fixes.
+Commit: `2a92565` — "feat(api): links CRUD + click logging + host-aware 302
+redirect (end-to-end slice)"
+
