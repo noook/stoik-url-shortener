@@ -223,3 +223,25 @@ the native `Response` type).
 Commit: `ece272e` — "feat(shared): scaffold pnpm monorepo, packages/shared with Zod
 schemas + ofetch client shell"
 
+### [Progress] Step 2 — apps/api scaffold: NestJS + Drizzle/Postgres
+Scaffolded `apps/api` via the Nest CLI (which, as of the current CLI version,
+already defaults new projects to `oxlint` + Vitest — matching the plan's tooling
+decisions with no extra setup needed). Added Drizzle ORM (`postgres-js` driver),
+`drizzle-kit` for migrations, the four-table schema (`domains`, `links`,
+`api_tokens`, `click_events`) with the `(domain_id, short_code)` unique index that
+answers the conflict question, a Nest `DatabaseModule` exposing the Drizzle
+instance via DI, `@nestjs/config` for env handling, cookie-parser + credentialed
+CORS wiring in `main.ts` (exact `WEB_ORIGIN`, not a wildcard, since the session
+cookie needs it), and a `GET /health` endpoint that does a real `select 1` through
+Drizzle. Added a `pnpm seed` script (using `consola` for its output, per the
+plan's narrow-scope decision on that tool) that seeds the two link domains from a
+`SEED_DOMAINS` env var, defaulting to placeholder hostnames.
+
+Verified for real, not just "should work": ran Postgres via Docker locally,
+generated + applied the first Drizzle migration, ran the seed script and confirmed
+both domain rows landed correctly via `psql`, booted the Nest API and hit
+`GET /health` for a genuine `{"status":"ok"}` round-trip through the DB. Clean
+`nest build` and `oxlint` pass.
+Commit: `cdcb2cd` — "feat(api): scaffold NestJS app with Drizzle/Postgres, health
+check, domain seed script"
+
