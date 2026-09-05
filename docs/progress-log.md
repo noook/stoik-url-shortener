@@ -361,3 +361,66 @@ Clean `nest build` + `oxlint` after both fixes.
 Commit: `2a92565` — "feat(api): links CRUD + click logging + host-aware 302
 redirect (end-to-end slice)"
 
+### [Steering] Frontend kickoff decision + Zod v4 + unplugin-icons
+User picked how to start the frontend: agent scaffolds the Vite+React+Tailwind+
+shadcn skeleton and wires the API client/routing plumbing, then hands off
+screen-by-screen for pairing. Also, mid-scaffold, corrected the Zod version -
+use v4 everywhere (not v3), and later asked that any icon usage go through
+**unplugin-icons with the Lucide set preferred**, rather than pulling in
+`lucide-react` directly for app-level icon usage (it stays as a transitive
+shadcn dependency for the components' own internals, e.g. Select's chevron -
+that's not being swapped out).
+
+### [Progress] Zod v4 migration across the whole monorepo
+Bumped `zod` to `^4.5.4` in `packages/shared`, `apps/api`, and `apps/web`.
+Replaced every deprecated v3-style chained string validator
+(`z.string().uuid()`, `z.string().url()`) with v4's top-level equivalents
+(`z.uuid()`, `z.url()`) across all shared schemas - not just "still works,
+ignore the deprecation," actually moved off the old API per the explicit
+instruction to avoid deprecated APIs, especially with Zod.
+Verified for real: clean build on all three packages, and a live `curl` test
+against `/api/links` with a malformed UUID confirmed Zod v4's error shape is
+what's actually running (`code: "invalid_format"`, not v3's
+`"invalid_string"`).
+Commit: `645a81a` — "feat(web): scaffold Vite+React+TS app; migrate whole
+monorepo to Zod v4 (non-deprecated APIs)"
+
+### [Progress] Step 6 (part 1) — apps/web scaffold, shadcn/ui, plumbing
+Scaffolded `apps/web` via `create-vite` (React 19 + TS + Vite 8/Rolldown,
+`oxlint` by default). Wired Tailwind v4 (`@tailwindcss/vite`, CSS-first, no
+separate config file) and initialized shadcn/ui (`radix-nova` preset),
+installing `button`, `input`, `label`, `card`, `table`, `badge`, `select`.
+Added `unplugin-icons` + `@iconify-json/lucide` per the steering above, wired
+into `vite.config.ts` with the `jsx`/`react` compiler (needed peer deps
+`@svgr/core` + `@svgr/plugin-jsx`, not obvious from the top-level install
+error message - had to look up the React-specific peer requirement).
+
+Built the core plumbing: `lib/api-client.ts` (shared `ofetch` instance,
+`credentials: 'include'`, redirects to `/login` on 401), `lib/auth.tsx` (auth
+context that always asks `GET /api/auth/session` - never reads a client-side
+value, since the auth cookie is httpOnly by design), `components/require-auth.tsx`
+(route guard), `components/app-layout.tsx` (header/logout shell, using a real
+`~icons/lucide/log-out` icon to prove the icon pipeline end-to-end, not just
+configured), and the router in `App.tsx` (`/login` public, everything else
+behind the guard + layout). Left four page stub files
+(`login-page.tsx`, `links-list-page.tsx`, `link-detail-page.tsx`,
+`create-link-page.tsx`) each with a comment describing exactly what it needs
+to do and which already-installed tool to reach for - these are what get
+handed off for pairing next, not built autonomously (per the user's stated
+preference to learn React by writing it himself with the agent reviewing).
+
+Fixed one real shadcn CLI quirk: with only `references` (no direct
+`compilerOptions`) in the root `tsconfig.json`, the CLI wrote generated
+component files to a literal `./@/` directory instead of resolving the `@/*`
+alias to `src/`. Added `paths` directly to the root tsconfig (without
+`baseUrl`, since that option is deprecated as of the TypeScript version in use
+here) and moved the misplaced files by hand.
+
+Verified for real: `pnpm build` (both `tsc -b` and `vite build`) clean,
+`pnpm lint` (oxlint) clean bar a couple of pre-existing shadcn-generated-file
+warnings, dev server boots and a real browser screenshot confirms the app
+renders with Tailwind styles applied and correctly redirects to `/login` with
+no session present.
+Commit: `51b529a` — "feat(web): shadcn/ui setup, unplugin-icons (lucide), app
+plumbing (auth context, route guard, layout, router, page stubs)"
+
