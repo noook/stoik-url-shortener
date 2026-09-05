@@ -1,10 +1,10 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import type { Domain } from "@url-shortener/shared";
 import { DomainsService } from "./domains.service.js";
-import { SessionAuthGuard } from "../auth/session-auth.guard.js";
+import { ApiTokenAuthGuard } from "../auth/api-token-auth.guard.js";
 
 @Controller("api/domains")
-@UseGuards(SessionAuthGuard)
+@UseGuards(ApiTokenAuthGuard)
 export class DomainsController {
   constructor(private readonly domainsService: DomainsService) {}
 

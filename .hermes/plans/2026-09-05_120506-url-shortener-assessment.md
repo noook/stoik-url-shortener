@@ -44,7 +44,7 @@
 | Multi-domain / uniqueness | **Implemented for real**: seed 2+ domains, create-link form lets you pick a target domain, so `(domain_id, short_code)` conflict handling is demonstrably live, not just an ADR |
 | Deployment | Everything self-hosted on the homelab, single Docker Compose stack: API, Postgres, and the built React app all live there, no Cloudflare split |
 | Domains | Two real `*.nook.sh` subdomains as the seeded "link domains" (e.g. `go1.nook.sh` / `go2.nook.sh`, exact names TBD), routed through the existing Traefik + Tartiflette tunnel setup; a separate public `*.nook.sh` subdomain serves the React app |
-| Token storage | Real httpOnly-cookie session (see §2.1) — no SSR needed for this, it's just the API setting `Set-Cookie` on login and the SPA calling `fetch` with `credentials: 'include'` afterward |
+| Token storage | Long-lived API token stored in an httpOnly cookie (see §2.1) — no separate session layer, no SSR needed; the API sets `Set-Cookie` on login and the SPA calls `fetch` with `credentials: 'include'` afterward |
 | Testing | Solid core + targeted tests: redirect resolution, `(domain, code)` conflict handling, token auth guard — not a full suite |
 
 ### 2.1 Frontend screens, detailed
@@ -52,14 +52,19 @@
 1. **Login** — a single field to paste the API token issued by the CLI command. On submit, call a lightweight `GET /api/session` (or similar) with that bearer token to validate it before storing, so a bad paste fails fast with a clear error instead of silently breaking later calls.
 2. **Links list** — paginated table/cards: name, short code, domain, destination (truncated), status (active / scheduled / expired based on start/end date), click count. Link through to detail. Create button.
 3. **Link detail** — full link info + edit (name, dates, active toggle) + a click log view (ip, user agent, referrer, timestamp) with basic aggregates (total clicks, last click). This is the "analytics" surface.
-4. **Create link** — form: destination URL, name (optional, defaults to the URL), domain picker (the 2+ seeded domains), custom alias (optional) or auto-generate with a configurable length, start/end date (optional). On success, navigate to that link's detail page.
+4. **Create link** — form: destination URL, name (optional, defaults to the URL), domain picker (the 2+ seeded domains), an optional short-code field (leave blank to auto-generate at a configurable length, fill it in to request that exact custom alias — whichever the person actually typed, no separate "is this custom" toggle), start/end date (optional). On success, navigate to that link's detail page.
 
-**Token storage: httpOnly-cookie session (decided).** The CLI-provisioned bearer token is what proves a person *may* create a session, but the browser never touches it directly:
+**Token storage: httpOnly cookie holding the token itself (revised, simpler than the original plan).** The only actual requirement was keeping the token out of reach of page-side JavaScript — not building a full session-management layer, and not scoping links to individual people (this instance serves one pool of people sharing an API, not per-user accounts, see §2.1.1). So:
 
-- `POST /api/auth/session` (login screen) takes the pasted CLI token, validates it against `api_tokens`, and on success sets a **separate, short-lived session cookie** — `HttpOnly`, `Secure`, `SameSite=Lax` (or `Strict`), `Domain=.nook.sh` so it's shared correctly across the app subdomain and the API subdomain since both live under `*.nook.sh` — this makes it same-site for cookie purposes despite being different hostnames, so `SameSite=Lax/Strict` is enough without needing `SameSite=None` + full CSRF-token machinery. A lightweight CSRF check (e.g. a custom header the browser can't be tricked into sending cross-site, like `X-Requested-With`) on state-changing requests is still cheap insurance.
-- The session is server-side state (a `sessions` table or a signed/opaque cookie value looked up server-side — signed opaque cookie is simplest here, no extra table needed), separate from the long-lived CLI token itself. Logout just clears the cookie (and server-side session row, if using one).
-- The React app never stores the token or session id in JS-reachable storage at all (no `localStorage`/`sessionStorage`) — every API call goes out through the shared `ofetch`-based client configured with `credentials: 'include'`, and the browser handles the cookie.
+- `POST /api/auth/session` (login screen) takes the pasted CLI token, validates it against `api_tokens`, and on success sets that same token as an `HttpOnly`, `SameSite=Lax` cookie with a long (30-day) browser-side lifetime — the token itself has no separate expiry, this is just how long the browser holds onto it before someone would need to paste it again.
+- No separate session table, no signed session payload, no session-vs-token distinction at all — the guard reads the cookie, looks up the token by hash, done. One less moving part than a session layer, for the same practical protection (page JS can't read an httpOnly cookie either way).
+- The React app never stores the token in JS-reachable storage (no `localStorage`/`sessionStorage`) — every API call goes out through the shared `ofetch`-based client configured with `credentials: 'include'`, and the browser handles the cookie. The same guard also accepts a plain `Authorization: Bearer <token>` header, so `curl`/CLI/API-client use isn't cookie-only.
+- Logout just clears the cookie. Revoking a token (setting `revoked_at`) invalidates every browser session using it immediately, with no separate step needed.
 - Because frontend and API are on different `*.nook.sh` subdomains but the same registrable domain, CORS still needs `credentials: true` + an explicit `Access-Control-Allow-Origin` (the frontend's exact origin, not `*`) on the API side for cookies to flow.
+
+### 2.1.1 Links belong to the instance, not to the token that created them
+
+Revised from the original plan: an instance of this app is provisioned for one pool of people who all share access (there's no per-user account system, just API tokens used as an access credential), so a link isn't really "owned" by whichever token created it — it belongs to the instance as a whole. `links` therefore has no `api_token_id` column. Anyone with a valid token for the instance can see, edit, or deactivate any link. This is a smaller, more honest data model for what's actually being described, and it also means revoking a token later never needs to touch existing links (no orphaned-ownership question to answer).
 
 ### 2.2 Tooling decisions (unjs, evaluated tool-by-tool)
 
@@ -71,7 +76,7 @@
 
 **`consola` — adopted, narrow scope.** Used only for the CLI commands' own console output (`token:create`, `domain:add` — the plaintext-token banner, prompts, colored status lines) and local dev scripts. **Not** used for request-lifecycle logging — Nest's built-in `Logger` stays the logger for the actual application/click-analytics logging, since that's already idiomatic Nest and swapping it for `consola` there would be replacing a working thing with a different working thing for no functional gain. This is the "don't over-engineer it" line: two logging tools, each doing the one job it's actually better at.
 
-**`unstorage` — considered, not adopted.** Would be a reasonable fit for the session-cookie lookup (key-value abstraction over Postgres/Redis/memory, swappable backend). Not adopted because a single Drizzle-backed `sessions` table (or a signed opaque cookie needing no table at all — see §2.1) already solves that problem with one thing the project already depends on (Drizzle/Postgres), rather than introducing a second storage abstraction for the same data. Worth one line in the README as "how I'd swap this for Redis at higher scale," not worth building.
+**`unstorage` — considered, not adopted.** Could offer a key-value abstraction if a session-storage layer existed, but there isn't one to abstract — the auth model is a direct token-hash lookup against the existing `api_tokens` table (see §2.1), so there's no separate storage concern this would actually solve here. Nothing to introduce it for.
 
 **`citty` — considered, not adopted.** Unjs's own CLI builder. Not used because `nest-commander` was already the right choice for `token:create`/`domain:add` specifically because it runs inside Nest's DI container and reuses the exact same services/repositories the HTTP layer uses — no duplicate data-access code between the API and the CLI. `citty` doesn't get you that DI reuse, so switching would mean re-implementing the same logic twice for a stylistic gain, which is exactly the over-engineering to avoid.
 
@@ -118,27 +123,27 @@ url-shortener/                 # lives at stoik/url-shortener
 ### 4.2 Data model (Drizzle + Postgres)
 
 - `domains` — `id, hostname, is_default`. Seeded with **2+ real rows** (e.g. two homelab subdomains) since multi-domain handling is being demoed live, not just documented.
-- `links` — `id, domain_id (FK), short_code, name, destination_url, custom (bool), start_at, end_at, created_at, api_token_id (FK, creator), is_active`.
+- `links` — `id, domain_id (FK), short_code, name, destination_url, start_at, end_at, created_at, is_active`. No `api_token_id`/creator column — links belong to the instance, not to whichever token created them (see §2.1.1).
   - **Unique constraint on `(domain_id, short_code)`**, not on `short_code` alone.
 - `api_tokens` — `id, name, token_hash, created_at, last_used_at, revoked_at`. Plaintext token is shown once at creation time (CLI), only the hash is stored.
 - `click_events` — `id, link_id (FK), ip, user_agent, referrer, occurred_at`.
 
 **Collision / uniqueness story (also written up as an ADR, and demonstrated live via the domain picker):**
 - Short codes are generated with `nanoid` (url-safe alphabet), default length configurable (e.g. 7), retried on unique-violation up to N times before failing loudly — collisions are expected to be astronomically rare at this scale, so "generate + retry on conflict" is preferable to pre-checking existence.
-- Custom aliases go through the same uniqueness path (`Zod` validates the shape, e.g. `^[a-zA-Z0-9_-]{3,32}$`, then DB constraint is the real source of truth — never trust the app-level check alone under concurrency).
+- A custom alias is simply whatever the person typed into the short-code field on the create form — there's no separate boolean distinguishing "custom" from "generated"; the API either received an explicit code from the client or generated one itself, and both go through the exact same uniqueness path afterward (`Zod` validates the shape, e.g. `^[a-zA-Z0-9_-]{3,32}$`, then the DB constraint is the real source of truth — never trust the app-level check alone under concurrency).
 - The `(domain_id, short_code)` composite key answers "what if two users pick the same code": they can't collide *within* a domain (DB enforces it, app returns 409), and they're *allowed* to collide *across* domains, because the domain is part of the identity of a short link, not just cosmetic. Redirect resolution needs `(request_host, short_code)`, not `short_code` alone — the redirect handler resolves the domain from the incoming `Host` header, which is also why 2 real seeded domains matter for the demo (you can hit the same code on both and land on different destinations).
 
 ### 4.3 Backend (NestJS + TypeScript)
 
 - **Validation:** Zod schemas live in `packages/shared`, consumed by Nest via a custom `ZodValidationPipe` (or `nestjs-zod`) instead of `class-validator` DTOs — single source of truth shared with the frontend.
 - **ORM:** Drizzle with `postgres-js` (or `node-postgres`) driver, migrations via `drizzle-kit`, run automatically on API container start (or a documented `pnpm db:migrate` step).
-- **Auth:** a Nest guard reads `Authorization: Bearer <token>` (login-time only; day-to-day auth is the session cookie, see §2.1), hashes it, looks it up in `api_tokens`, checks `revoked_at`. Token provisioning via a Nest CLI command (using `nest-commander`), e.g.:
+- **Auth:** a Nest guard reads the API token from an `HttpOnly` cookie (browser) or an `Authorization: Bearer <token>` header (curl/CLI/API-client use), hashes it, looks it up in `api_tokens`, checks `revoked_at` — see §2.1's revised, session-free approach. Token provisioning via a Nest CLI command (using `nest-commander`), e.g.:
   ```
   pnpm --filter api cli token:create --name "recruiter-demo"
   ```
-  prints the plaintext token once — never stored or logged in clear. A matching `pnpm --filter api cli domain:add --hostname go2.nook.sh` command provisions a new row in `domains` the same way (see `docs/adding-a-domain.md` for the full new-domain procedure, infra + app). A `POST /api/auth/session` endpoint lets the frontend exchange a pasted token for the session cookie on login.
+  prints the plaintext token once — never stored or logged in clear. A matching `pnpm --filter api cli domain:add --hostname go2.nook.sh` command provisions a new row in `domains` the same way (see `docs/adding-a-domain.md` for the full new-domain procedure, infra + app). A `POST /api/auth/session` endpoint lets the frontend exchange a pasted token for that same token set as an httpOnly cookie on login.
 - **Endpoints (draft):**
-  - `POST /api/auth/session` — exchange a CLI token for a session cookie (login screen)
+  - `POST /api/auth/session` — exchange a CLI token for the httpOnly auth cookie (login screen)
   - `GET /api/domains` — list seeded domains, for the create-link picker (protected)
   - `POST /api/links` — create (protected)
   - `GET /api/links` — list, paginated (protected)

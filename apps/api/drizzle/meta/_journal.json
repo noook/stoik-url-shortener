@@ -8,6 +8,13 @@
       "when": 1788607528660,
       "tag": "0000_square_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788610896365,
+      "tag": "0001_outgoing_colleen_wing",
+      "breakpoints": true
     }
   ]
 }

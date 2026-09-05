@@ -1,26 +1,24 @@
 import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UsePipes } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { createSessionSchema, type SessionInfo } from "@url-shortener/shared";
 import { ApiTokensService } from "./api-tokens.service.js";
-import { SessionCodec } from "./session-codec.js";
-import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_MS } from "./session.constants.js";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE_MS } from "./auth-cookie.constants.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
 
 @Controller("api/auth")
 export class AuthController {
-  constructor(
-    private readonly apiTokensService: ApiTokensService,
-    private readonly sessionCodec: SessionCodec,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly apiTokensService: ApiTokensService) {}
 
+  /**
+   * Exchanges the pasted CLI-issued token for an httpOnly cookie holding that
+   * same token - no separate session concept. This only requirement here was
+   * keeping the token out of reach of page-side JS, which an httpOnly cookie
+   * already does; a signed session layer on top would add moving parts
+   * without adding real security value for this project (see plan §2.1).
+   */
   @Post("session")
   @UsePipes(new ZodValidationPipe(createSessionSchema))
-  async createSession(
-    @Body() body: { token: string },
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Body() body: { token: string }, @Res({ passthrough: true }) res: Response) {
     const token = await this.apiTokensService.findActiveByPlaintext(body.token);
     if (!token) {
       throw new UnauthorizedException("Invalid or revoked token");
@@ -28,13 +26,11 @@ export class AuthController {
 
     await this.apiTokensService.touchLastUsed(token.id);
 
-    const cookieValue = this.sessionCodec.encode({ tokenId: token.id, issuedAt: Date.now() });
-    res.cookie(SESSION_COOKIE_NAME, cookieValue, {
+    res.cookie(AUTH_COOKIE_NAME, body.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      domain: this.configService.get<string>("SESSION_COOKIE_DOMAIN"),
-      maxAge: SESSION_MAX_AGE_MS,
+      maxAge: AUTH_COOKIE_MAX_AGE_MS,
       path: "/",
     });
 
@@ -43,22 +39,21 @@ export class AuthController {
 
   @Post("logout")
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
+    res.clearCookie(AUTH_COOKIE_NAME, { path: "/" });
     return { ok: true };
   }
 
   /**
-   * Frontend calls this on load to check whether it has a valid session -
+   * Frontend calls this on load to check whether it has a valid stored token -
    * never by reading the (httpOnly, unreadable) cookie value itself.
    */
   @Get("session")
   async getSession(@Req() req: Request): Promise<SessionInfo> {
-    const cookieValue = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE_NAME];
-    const payload = this.sessionCodec.decode(cookieValue);
-    if (!payload) throw new UnauthorizedException("No valid session");
+    const cookieToken = (req.cookies as Record<string, string> | undefined)?.[AUTH_COOKIE_NAME];
+    if (!cookieToken) throw new UnauthorizedException("No token stored");
 
-    const token = await this.apiTokensService.findActiveById(payload.tokenId);
-    if (!token) throw new UnauthorizedException("Session's token has been revoked");
+    const token = await this.apiTokensService.findActiveByPlaintext(cookieToken);
+    if (!token) throw new UnauthorizedException("Token has been revoked");
 
     return { tokenName: token.name, authenticated: true };
   }

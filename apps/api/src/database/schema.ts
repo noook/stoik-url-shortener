@@ -26,12 +26,10 @@ export const links = pgTable(
     shortCode: text("short_code").notNull(),
     name: text("name").notNull(),
     destinationUrl: text("destination_url").notNull(),
-    custom: boolean("custom").notNull().default(false),
     startAt: timestamp("start_at", { withTimezone: true }),
     endAt: timestamp("end_at", { withTimezone: true }),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    apiTokenId: uuid("api_token_id").references(() => apiTokens.id, { onDelete: "set null" }),
   },
   (table) => [
     // The answer to "what happens when two users pick the same short code": they
