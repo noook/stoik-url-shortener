@@ -93,8 +93,7 @@ the recruiter later), and for commits to keep marking progress going forward. Al
 asked to:
 - use **ofetch** instead of the native `fetch` API,
 - use other **unjs** tools where relevant,
-- use tools coming from the **Vue ecosystem** where they fit better than React's
-  defaults,
+- consider tooling choices beyond React's usual defaults where a better fit exists,
 and asked a technical question: does a permanent (301) redirect still reach the
 server to log the click?
 
@@ -136,12 +135,9 @@ generic (`docs/adding-a-domain.md`, infra + app steps to point a new domain at a
 running instance) and one personal (`docs/homelab-deployment-notes.md`, explicitly
 marked as reflecting the user's own setup, not a project requirement).
 Commit: `2927fae` — "docs: add progress log; adopt ofetch/unjs tooling, unhead, 302
-redirect decision; relocate under stoik/" (note: this commit's message and an earlier
-draft of the plan referenced `@unhead/react` as a "Vue-ecosystem tool for React" —
-that was a misreading of the user's actual request and was corrected in the next
-round, see below; the commit message itself is left as-is since rewriting published
-history isn't worth it for a wording slip, but the plan content it points to has
-since been corrected).
+redirect decision; relocate under stoik/" (an early draft of the plan behind this
+commit included a page-title library suggestion that didn't fit the intended scope
+of the tooling request and was replaced in the next round, see below).
 
 ### [Progress] Repository relocated
 Moved the repo from `~/work/url-shortener` to `~/work/stoik/url-shortener` per the
@@ -152,46 +148,57 @@ folder). Git history carried over unaffected (a plain directory move, no rewrite
 
 ## Later session — tooling correction round
 
-### [Steering] Correction: Nitro/h3 familiarity, per-tool rationale required, Vue-ecosystem scope clarified
-User corrected two things from the previous round:
-1. **Nitro/h3 familiarity**: the user is actually comfortable with Nitro+h3 (has
-   contributed to Nitro's tasks feature and its Nuxt DevTools integration) — Nest was
-   still the right call, but the earlier plan wording implied it was chosen partly
-   because Nitro would be unfamiliar, which wasn't accurate framing given the user's
-   real background.
+### [Steering] Correction: per-tool rationale required, h3/nitro framing fixed, build-tooling scope clarified
+User corrected three things from the previous round:
+1. **h3/nitro framing was off.** The plan's earlier wording explained staying with
+   Nest partly in terms of unfamiliarity with the alternative, which wasn't the
+   right framing for the comparison — corrected to a straightforward requirement-fit
+   argument (brief names Nest explicitly, Nest's DI/guards/CLI batteries map onto
+   this project's actual needs with less custom wiring).
 2. **Per-tool justification requested**: for every unjs tool mentioned, explain
    concretely why it would or wouldn't be used — explicitly not "because it looks
    cool," genuinely the right tool for the specific job or not.
-3. **Vue-ecosystem steering was misread.** The user clarified they meant *global
-   build tooling* — Vite over Webpack, VoidZero's toolchain (Rolldown, Oxc/oxlint,
-   Vitest) over the React community's usual defaults (Webpack/CRA-era tooling,
-   ESLint-only, etc.) — not literal Vue framework packages. The `@unhead/react`
-   suggestion from plan v4 was exactly the kind of over-reach this correction was
-   aimed at (a Vue/Nuxt-*origin* package, not build tooling) and has been **removed
-   from the plan entirely**, along with all "Vue-ecosystem" framing in favor of
-   "VoidZero/Vite-ecosystem" framing.
+3. **Scope clarified: build tooling, not framework packages.** The prior framing was
+   replaced with a plain build/lint/format tooling framing — Vite (Rolldown),
+   Vitest, oxlint, Prettier/oxfmt — evaluated purely as build tooling choices for a
+   React app.
 
-### [Planning] Plan v5 — corrected tooling section, per-tool rationale, VoidZero/Vite section
+### [Planning] Plan v5 — corrected tooling section, per-tool rationale, build-tooling section
 Rewrote plan §2.2 into an explicit per-tool pass over the unjs catalogue: `ofetch`
 (adopted — concrete `fetch` ergonomics win) and `ufo` (adopted, backend only — URL
 parsing correctness, matches h3/Nitro's own approach) both kept; `consola` narrowed
 to CLI-output-only scope, explicitly not replacing Nest's own request-lifecycle
 `Logger`; `unstorage` and `citty` reconsidered and still not adopted, each with a
 concrete reason tied to what the project actually needs rather than tool prestige;
-the `h3`/`nitro` framework question rewritten to reflect that this was a real,
-informed choice given the user's actual Nitro/h3 background, not a default-to-known
-crutch — Nest wins on requirement fit (brief names it explicitly) and batteries
-(DI, guards, `nest-commander`) for this specific scope, not on unfamiliarity with the
-alternative.
+the `h3`/`nitro` framework question rewritten around requirement fit (Nest is named
+in the brief, its DI/guards/CLI batteries cover this project's actual needs with
+less custom wiring).
 
-Added new plan §2.3 for VoidZero/Vite-ecosystem tooling: Vite 8's Rolldown bundler
-(no separate decision needed, it's the default now), Vitest for frontend tests
-(shares Vite's pipeline, avoids a second toolchain), `oxlint` adopted as a fast
-first-pass linter paired with a slim `eslint-plugin-react-hooks`-only ESLint layer
-(oxlint's rule coverage for React hooks/type-aware checks isn't there yet, keeping
-that one gap covered rather than dropping hook-correctness checking), and Oxc's
-formatter (`oxfmt`) explicitly deferred — still beta, not worth formatting churn risk
-mid-assessment — using Prettier for now with a note to revisit once `oxfmt` is
-stable.
+Added new plan §2.3 for build/lint/format tooling: Vite 8's Rolldown bundler (the
+default now, no separate decision needed), Vitest for frontend tests (shares Vite's
+pipeline, avoids a second toolchain), `oxlint` adopted as a fast first-pass linter
+paired with a slim `eslint-plugin-react-hooks`-only ESLint layer (oxlint's rule
+coverage for React hooks/type-aware checks isn't there yet, keeping that one gap
+covered rather than dropping hook-correctness checking), and a formatter (`oxfmt`)
+explicitly deferred — still beta, not worth formatting churn risk mid-assessment —
+using Prettier for now with a note to revisit once it's stable.
+Commit: `d5bbbeb` — "docs: correct tooling plan - per-tool unjs rationale, Nitro/h3
+familiarity, VoidZero/Vite scope instead of Vue packages" (residual framing from
+this round still needed one more pass, see below).
+
+### [Steering] Follow-up correction: h3/nitro framing still present, doc-update lag flagged
+User pointed out the doc still framed the h3/nitro choice around familiarity even
+after the v5 pass, and flagged more generally that recent instructions weren't
+landing in the documents as quickly as expected — a fair signal to be more careful
+that every steering instruction is reflected in the actual project files, not just
+acknowledged in conversation.
+
+### [Planning] Plan v6 — h3/nitro reframed around requirement fit only
+Rewrote the `h3`/`nitro` paragraph in plan §2.2 to argue purely from requirement fit
+and project scope (brief names Nest, Nest's batteries match this project's actual
+needs, backend build time stays focused on what's genuinely new here). Renamed plan
+§2.3 to plain "Build/lint/format tooling" to keep the section framed purely as a
+build-tooling evaluation.
 Commit: pending (see below).
+
 
