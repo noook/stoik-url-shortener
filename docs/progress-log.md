@@ -458,3 +458,22 @@ shadcn Field pattern"
 ### [Answer] Login screen confirmed working
 User confirmed the login screen works after trying it themselves.
 
+### [Steering] Bearer-token auth requirement reaffirmed
+User clarified the API must work standalone, not just from the web client -
+auth should never rely solely on the cookie session. Verified the existing
+`ApiTokenAuthGuard` already satisfies this (checks a plain `Authorization:
+Bearer <token>` header with no cookie present, confirmed live with `curl`) -
+no code change needed, this was already the design from the earlier
+auth-simplification round.
+
+### [Idea for later] Rate limiting - candidate topic for the next interview round
+User flagged API rate limiting as a topic to bring up or explore in a follow-up
+interview round - not something to build now, just noted for later
+consideration/discussion.
+
+### [Steering] Web layout: constrain content width, coherent shell
+User is coming from Nuxt UI and found the current layout unsatisfactory on an
+ultrawide (21:9) monitor - content spreads edge-to-edge with no constraint.
+Asked for a coherent layout with content constrained toward the center of the
+screen, closer to what a component-library-driven layout (like Nuxt UI) gives
+by default.
