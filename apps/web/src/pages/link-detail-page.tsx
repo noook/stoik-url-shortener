@@ -36,23 +36,20 @@ export function LinkDetailPage() {
 
   const { data: link, isLoading, isError } = useQuery({
     queryKey: ["link", id],
-    queryFn: () => api<Link>(`/links/${id}`),
+    queryFn: () => api.links.get(id!),
     enabled: !!id,
   });
 
   const [clicksPage, setClicksPage] = useState(1);
   const { data: clicksData, isLoading: clicksLoading } = useQuery({
     queryKey: ["link-clicks", id, clicksPage],
-    queryFn: () =>
-      api<ClickEventPage>(`/links/${id}/clicks`, {
-        query: { page: clicksPage, pageSize: CLICKS_PAGE_SIZE },
-      }),
+    queryFn: () => api.links.listClicks(id!, { page: clicksPage, pageSize: CLICKS_PAGE_SIZE }),
     enabled: !!id,
     placeholderData: (previous) => previous,
   });
 
   const updateMutation = useMutation({
-    mutationFn: (patch: UpdateLinkInput) => api<Link>(`/links/${id}`, { method: "PATCH", body: patch }),
+    mutationFn: (patch: UpdateLinkInput) => api.links.update(id!, patch),
     onSuccess: (updated) => {
       queryClient.setQueryData(["link", id], updated);
     },

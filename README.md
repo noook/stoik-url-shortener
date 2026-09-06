@@ -22,6 +22,13 @@ answered, and what landed when — is in [`docs/progress-log.md`](docs/progress-
   `zodResolver` — a change to a schema updates client and server validation
   together, and both actually enforce the same rules because it's the same
   code.
+- **A typed method per API endpoint, not a single generic `api<T>(url)`
+  call.** `packages/shared/src/api-endpoints.ts` wraps the raw `ofetch`
+  client in `api.links.list()`, `api.links.get(id)`, `api.auth.login()`,
+  etc. - one place per route for its URL and response type, matching the
+  NestJS controllers 1:1. Every call site gets both through inference
+  instead of writing a URL string and a response generic by hand at every
+  call site.
 - **Auth: a long-lived API token, not a session layered on top of one.**
   `token:create` issues a token via the CLI; the token itself is the
   credential. The web app exchanges it once for an httpOnly cookie holding
@@ -132,7 +139,8 @@ apps/
       components/ Shared UI (shadcn primitives + a few app-level components)
       lib/        API client, auth context
 packages/
-  shared/         Zod schemas + types shared front/back, ofetch-based API client factory
+  shared/         Zod schemas + types shared front/back, ofetch-based API
+                  client factory + a typed method per endpoint (api-endpoints.ts)
 docs/
   adr/            Architecture decision records
   progress-log.md Full build history

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { Domain, Link } from "@url-shortener/shared";
+import type { CreateLinkInput } from "@url-shortener/shared";
 import { SHORT_CODE_PATTERN } from "@url-shortener/shared";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export function CreateLinkPage() {
 
   const { data: domains, isLoading: domainsLoading } = useQuery({
     queryKey: ["domains"],
-    queryFn: () => api<Domain[]>("/domains"),
+    queryFn: () => api.domains.list(),
   });
 
   const form = useForm<CreateLinkFormValues>({
@@ -65,7 +65,7 @@ export function CreateLinkPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (values: CreateLinkFormValues) => api<Link>("/links", { method: "POST", body: toCreateLinkInput(values) }),
+    mutationFn: (values: CreateLinkFormValues) => api.links.create(toCreateLinkInput(values)),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["links"] });
       navigate(`/links/${created.id}`);
@@ -212,7 +212,7 @@ export function CreateLinkPage() {
   );
 }
 
-function toCreateLinkInput(values: CreateLinkFormValues) {
+function toCreateLinkInput(values: CreateLinkFormValues): CreateLinkInput {
   return {
     destinationUrl: values.destinationUrl,
     name: values.name?.trim() || undefined,
@@ -220,7 +220,7 @@ function toCreateLinkInput(values: CreateLinkFormValues) {
     startAt: values.startAt ? new Date(values.startAt) : undefined,
     endAt: values.endAt ? new Date(values.endAt) : undefined,
     ...(values.alias ? { alias: values.alias } : {}),
-  };
+  } as CreateLinkInput;
 }
 
 /** ofetch throws a FetchError whose `.data` is the Nest error body (`{ message }`) - surface that verbatim rather than a generic failure string. */

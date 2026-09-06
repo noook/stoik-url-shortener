@@ -796,3 +796,52 @@ directly-published port (the redirect route is intentionally not proxied
 through the web/API split, since it's the public-facing short-link surface,
 not part of the app). Tore the smoke-test stack down and cleaned up the
 local `.env` afterward; confirmed the running dev servers were unaffected.
+
+### [Steering] Typed per-endpoint API client, not a single generic method
+User pointed out the shared `api<T>(url, options)` pattern made every call
+site responsible for two things that should live in one place: the literal
+URL string (which breaks silently everywhere it's duplicated if a route
+path ever changes) and the response type generic (same problem, just for
+shapes instead of paths).
+
+Added `packages/shared/src/api-endpoints.ts`: `createApiEndpoints(client)`
+wraps the raw `ApiClient` (client.ts, unchanged) in a plain object of
+per-endpoint methods matching the actual NestJS routes 1:1 -
+`api.auth.getSession()`, `api.auth.login(input)`, `api.auth.logout()`,
+`api.domains.list()`, `api.links.list(params)`, `api.links.get(id)`,
+`api.links.create(input)`, `api.links.update(id, patch)`,
+`api.links.deactivate(id)`, `api.links.checkAlias(params)`,
+`api.links.listClicks(id, params)`. Each method's URL and response type are
+now defined exactly once; every call site gets both for free through
+inference, with nothing to keep in sync if a route changes. Deliberately
+a factory returning a plain object (not a class) - no state beyond the
+wrapped client, nothing to instantiate beyond calling it once.
+
+`apps/web/src/lib/api-client.ts` now calls `createApiEndpoints(rawClient)`
+and exports the typed object as `api`; every call site across
+`links-list-page.tsx`, `link-detail-page.tsx`, `create-link-page.tsx`, and
+`lib/auth.tsx` was rewritten from `api<T>("/url", opts)` to the
+corresponding `api.resource.method(...)` call - no leftover raw calls
+anywhere (`grep`-confirmed). Also fixed `clickEventPageSchema` while in
+there: it declared a `total` field the real `GET /links/:id/clicks`
+response has never actually returned (the click log has always been
+prev/next-only, per the earlier link-detail-screen work) - removed the
+unused field so the shared schema matches the API's real shape.
+
+Verified for real, not just a type check: rebuilt `packages/shared`,
+`apps/api`, and `apps/web` clean (`tsc -b --noEmit` on web, `nest build` on
+api, `tsc -p` on shared), then exercised the whole app live in the
+browser through the new typed methods - logged in (`api.auth.login`),
+loaded the links list (`api.links.list`), opened a link's detail page
+(`api.links.get` + `api.links.listClicks`, including a real click event
+from earlier e2e runs rendering correctly), and created a new link
+end-to-end (`api.links.create`, correct redirect to the new detail page) -
+then deactivated that test link afterward. Clean `pnpm lint` and
+`pnpm test` (unit) across all workspaces, `pnpm --filter api test:e2e`
+still 20/20 green.
+
+Also fixed a pre-existing unrelated gap noticed while running the repo-wide
+lint for this change: `packages/shared`'s `lint` script called `oxlint`
+without it ever being a declared devDependency, so `pnpm lint` at the repo
+root has been silently failing on that workspace. Added `oxlint` to
+`packages/shared`'s devDependencies to match `apps/api`'s version.

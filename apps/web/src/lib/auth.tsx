@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const info = await api<SessionInfo>("/auth/session");
+      const info = await api.auth.getSession();
       setSession(info);
     } catch {
       setSession(null);
@@ -38,15 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(async (token: string) => {
-    const info = await api<SessionInfo>("/auth/session", {
-      method: "POST",
-      body: { token },
-    });
+    const info = await api.auth.login({ token });
     setSession(info);
   }, []);
 
   const logout = useCallback(async () => {
-    await api("/auth/logout", { method: "POST" });
+    await api.auth.logout();
     setSession(null);
   }, []);
 

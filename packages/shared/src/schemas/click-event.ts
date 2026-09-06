@@ -10,9 +10,13 @@ export const clickEventSchema = z.object({
 });
 export type ClickEvent = z.infer<typeof clickEventSchema>;
 
+/**
+ * Matches the actual `GET /links/:id/clicks` response shape
+ * (`ClickEventsService.listForLink`) - no `total`, since the click log's
+ * pagination is prev/next-only (see link-detail-page.tsx's `ClickLogTable`).
+ */
 export const clickEventPageSchema = z.object({
   items: z.array(clickEventSchema),
-  total: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
 });

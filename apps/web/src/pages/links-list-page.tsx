@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
-import type { Link, LinkPage } from "@url-shortener/shared";
+import type { Link } from "@url-shortener/shared";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { LinkStatusBadge } from "@/components/link-status-badge";
@@ -25,8 +25,7 @@ export function LinksListPage() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["links", page],
-    queryFn: () =>
-      api<LinkPage>("/links", { query: { page, pageSize: PAGE_SIZE } }),
+    queryFn: () => api.links.list({ page, pageSize: PAGE_SIZE }),
     placeholderData: (previous) => previous,
   });
 
