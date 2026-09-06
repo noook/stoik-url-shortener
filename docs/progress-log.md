@@ -824,6 +824,53 @@ hover/focus underline states via CDP mouse events, confirmed a save still
 round-trips through a reload and reverted the test edit. Clean
 `tsc -b --noEmit`, oxlint (no new warnings), and vite build.
 
+### [Steering] Follow-up: rename the field in the DB and contracts too, not just UI copy
+The previous entry only renamed "Name" to "Label" as UI copy, keeping the
+underlying `name` column/field name unchanged. User asked to rename it for
+real, end to end: DB column, shared Zod schemas (the wire contract), and
+tests.
+
+- New migration `0002_rename_links_name_to_label.sql`: a plain
+  `ALTER TABLE links RENAME COLUMN name TO label` (in-place rename, not
+  drop+recreate - preserves existing data). Wrote the migration SQL and its
+  matching `meta/0002_snapshot.json` / `_journal.json` entry by hand, since
+  `drizzle-kit generate` wants an interactive TTY prompt to disambiguate a
+  rename from a drop+add and this session has none; `drizzle-kit check`
+  confirms the migration set is internally consistent. Applied to the local
+  dev DB with `drizzle-kit migrate` - confirmed via `psql \d links` that the
+  column is renamed with data intact (e.g. the "Roadmap 95" test link
+  survived the rename with its stored value unchanged).
+- `apps/api/src/database/schema.ts`: `links.name` -> `links.label` (Drizzle
+  column definition).
+- `packages/shared/src/schemas/link.ts`: `name` -> `label` in
+  `createLinkSchema`, `updateLinkSchema`, and `linkSchema` - this is the
+  actual wire contract shared by the API's ZodValidationPipe and the
+  frontend's zodResolver, so `CreateLinkInput`/`UpdateLinkInput`/`Link` all
+  now carry `label`, not `name`.
+- `apps/api/src/links/links.service.ts`: all `input.name`/`row.name`
+  references updated to `input.label`/`row.label`.
+- `apps/api/src/scripts/seed-links.ts`: seed script's `name:` field ->
+  `label:`.
+- Frontend: `create-link-page.tsx` and `link-detail-page.tsx`'s form
+  schemas, `Controller` names, and `toCreateLinkInput` mapping all updated
+  from `name` to `label`; `links-list-page.tsx`'s `link.name` ->
+  `link.label`.
+- Left `apiTokens.name` (the API token's own display name, a completely
+  separate table/concept) and the generic `name: z.string()` schema inside
+  `zod-validation.pipe.spec.ts` (an arbitrary test fixture, unrelated to
+  links) untouched - renaming those would have been out of scope and
+  potentially confusing since they're not the same field at all.
+
+Verified for real: `tsc -b --noEmit` clean on both `apps/api` and
+`apps/web`, full `pnpm build` across all three workspaces, `pnpm lint`
+clean (no new warnings), `pnpm test` (22/22 unit tests, unchanged - none of
+them touch this field by name), `pnpm --filter api test:e2e` (20/20,
+re-run against the now-migrated dev DB), and a live browser pass: viewed a
+link with pre-existing data through the renamed column (confirmed value
+survived the migration), edited its label via a real UI interaction and
+confirmed the PATCH persisted, and ran the full create-link flow end to
+end with the renamed field (cleaned up the test link afterward).
+
 ### [Steering] Typed per-endpoint API client, not a single generic method
 User pointed out the shared `api<T>(url, options)` pattern made every call
 site responsible for two things that should live in one place: the literal

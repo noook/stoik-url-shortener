@@ -38,13 +38,13 @@ export class LinksService {
       throw new NotFoundException("Domain not found");
     }
 
-    const name = input.name?.trim() || input.destinationUrl;
+    const label = input.label?.trim() || input.destinationUrl;
 
     if ("alias" in input && input.alias) {
       const row = await this.insertOne({
         domainId: input.domainId,
         shortCode: input.alias,
-        name,
+        label,
         destinationUrl: input.destinationUrl,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -64,7 +64,7 @@ export class LinksService {
       const row = await this.insertOne({
         domainId: input.domainId,
         shortCode,
-        name,
+        label,
         destinationUrl: input.destinationUrl,
         startAt: input.startAt,
         endAt: input.endAt,
@@ -79,7 +79,7 @@ export class LinksService {
   private async insertOne(values: {
     domainId: string;
     shortCode: string;
-    name: string;
+    label: string;
     destinationUrl: string;
     startAt?: Date;
     endAt?: Date;
@@ -153,7 +153,7 @@ export class LinksService {
     const [row] = await this.db
       .update(links)
       .set({
-        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.label !== undefined ? { label: input.label } : {}),
         ...(input.startAt !== undefined ? { startAt: input.startAt } : {}),
         ...(input.endAt !== undefined ? { endAt: input.endAt } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
@@ -206,7 +206,7 @@ export class LinksService {
       domainId: row.domainId,
       domainHostname,
       shortCode: row.shortCode,
-      name: row.name,
+      label: row.label,
       destinationUrl: row.destinationUrl,
       startAt: row.startAt,
       endAt: row.endAt,

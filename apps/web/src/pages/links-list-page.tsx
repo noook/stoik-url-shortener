@@ -119,7 +119,7 @@ function LinkRow({ link }: { link: Link }) {
     <TableRow className="group/row">
       <TableCell className="truncate">
         <RouterLink to={`/links/${link.id}`} className="block truncate font-medium hover:underline">
-          {link.name}
+          {link.label}
         </RouterLink>
       </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">

@@ -24,7 +24,7 @@ export const links = pgTable(
       .notNull()
       .references(() => domains.id, { onDelete: "restrict" }),
     shortCode: text("short_code").notNull(),
-    name: text("name").notNull(),
+    label: text("label").notNull(),
     destinationUrl: text("destination_url").notNull(),
     startAt: timestamp("start_at", { withTimezone: true }),
     endAt: timestamp("end_at", { withTimezone: true }),

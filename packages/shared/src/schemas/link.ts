@@ -5,7 +5,7 @@ import { shortCodeSchema, shortCodeLengthSchema } from "./short-code.js";
 export const createLinkSchema = z
   .object({
     destinationUrl: z.url("Must be a valid URL"),
-    name: z.string().trim().min(1).max(200).optional(),
+    label: z.string().trim().min(1).max(200).optional(),
     domainId: z.uuid("Pick a domain"),
     startAt: z.coerce.date().optional(),
     endAt: z.coerce.date().optional(),
@@ -24,7 +24,7 @@ export type CreateLinkInput = z.infer<typeof createLinkSchema>;
 
 export const updateLinkSchema = z
   .object({
-    name: z.string().trim().min(1).max(200).optional(),
+    label: z.string().trim().min(1).max(200).optional(),
     startAt: z.coerce.date().nullable().optional(),
     endAt: z.coerce.date().nullable().optional(),
     isActive: z.boolean().optional(),
@@ -43,7 +43,7 @@ export const linkSchema = z.object({
   domainId: z.uuid(),
   domainHostname: z.string(),
   shortCode: shortCodeSchema,
-  name: z.string(),
+  label: z.string(),
   destinationUrl: z.url(),
   startAt: z.coerce.date().nullable(),
   endAt: z.coerce.date().nullable(),

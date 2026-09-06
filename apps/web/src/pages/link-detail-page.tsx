@@ -65,7 +65,7 @@ export function LinkDetailPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <NameField link={link} onSave={(patch) => updateMutation.mutate(patch)} />
-          {link.name !== link.destinationUrl && (
+          {link.label !== link.destinationUrl && (
             <p className="mt-1 truncate text-sm text-muted-foreground">{link.destinationUrl}</p>
           )}
           <div className="mt-2 font-mono text-xs text-muted-foreground">
@@ -109,17 +109,17 @@ export function LinkDetailPage() {
 function NameField({ link, onSave }: { link: Link; onSave: (patch: UpdateLinkInput) => void }) {
   const form = useForm<UpdateLinkFormValues>({
     resolver: zodResolver(updateLinkSchema),
-    defaultValues: { name: link.name },
+    defaultValues: { label: link.label },
   });
 
   function onSubmit(data: UpdateLinkFormValues) {
-    if (data.name !== link.name) onSave({ name: data.name });
+    if (data.label !== link.label) onSave({ label: data.label });
   }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} onBlur={form.handleSubmit(onSubmit)}>
       <Controller
-        name="name"
+        name="label"
         control={form.control}
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>

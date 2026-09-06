@@ -146,7 +146,7 @@ async function main() {
     const values: typeof links.$inferInsert = {
       domainId: domain.id,
       shortCode: shortCode(7),
-      name: `${randomItem(NAME_PREFIXES)} ${i + 1}`,
+      label: `${randomItem(NAME_PREFIXES)} ${i + 1}`,
       destinationUrl: randomItem(SAMPLE_DESTINATIONS),
       isActive: plan.kind !== "inactive",
       createdAt,

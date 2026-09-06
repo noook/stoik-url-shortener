@@ -33,7 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const createLinkFormSchema = z
   .object({
     destinationUrl: z.url("Must be a valid URL"),
-    name: z.string().optional(),
+    label: z.string().optional(),
     domainId: z.string().min(1, "Pick a domain"),
     alias: z
       .string()
@@ -61,7 +61,7 @@ export function CreateLinkPage() {
 
   const form = useForm<CreateLinkFormValues>({
     resolver: zodResolver(createLinkFormSchema),
-    defaultValues: { destinationUrl: "", name: "", domainId: "", alias: "", startAt: "", endAt: "" },
+    defaultValues: { destinationUrl: "", label: "", domainId: "", alias: "", startAt: "", endAt: "" },
   });
 
   const createMutation = useMutation({
@@ -108,7 +108,7 @@ export function CreateLinkPage() {
               />
 
               <Controller
-                name="name"
+                name="label"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
@@ -218,7 +218,7 @@ export function CreateLinkPage() {
 function toCreateLinkInput(values: CreateLinkFormValues): CreateLinkInput {
   return {
     destinationUrl: values.destinationUrl,
-    name: values.name?.trim() || undefined,
+    label: values.label?.trim() || undefined,
     domainId: values.domainId,
     startAt: values.startAt ? new Date(values.startAt) : undefined,
     endAt: values.endAt ? new Date(values.endAt) : undefined,
