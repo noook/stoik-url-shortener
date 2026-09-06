@@ -639,3 +639,24 @@ here since a stale personal compose file might get copied in by habit).
 Kept clearly separate from the generic `docker-compose.yml` and the
 adding-a-domain doc so a reviewer isn't left thinking Traefik-specific
 config is part of the actual project spec.
+
+### [Progress] ADR 0001 and top-level README written
+Wrote `docs/adr/0001-domain-and-shortcode-uniqueness.md`, documenting the
+short-code/domain uniqueness design decided early on (composite unique
+index on `(domain_id, short_code)`, the redirect handler's strict
+`(hostname, code)` resolution, per-domain conflict handling on create) plus
+two smaller decisions folded in from the same reasoning pass: `302` over
+`301` for redirects (caching breaks click logging and live edits), and the
+token-as-credential auth design (no separate session layer on top of the
+long-lived API token - an httpOnly cookie already satisfies the actual
+stated requirement of keeping it out of reach of page JS).
+
+Wrote the top-level `README.md`: project overview, an "architecture at a
+glance" section linking into the ADR rather than re-explaining it, local
+setup instructions, Docker Compose instructions, and a project structure
+map. Verified the local setup commands against the actual npm scripts
+rather than assuming - `pnpm --filter api drizzle-kit migrate` doesn't work
+as an npm-script alias (needs `pnpm --filter api exec drizzle-kit
+migrate`), and `cli`/the seed scripts run from `dist/`, so a build step is
+required first for local (non-Docker) setup - corrected before finalizing
+rather than leaving unverified command examples in a deliverable doc.
