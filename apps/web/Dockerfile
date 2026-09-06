@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
 
 # Multi-stage build for the React app: build the static bundle with Vite,
-# serve it with nginx, and reverse-proxy /api to the API container so
-# cookies stay same-origin from the browser's point of view (mirrors the
-# Vite dev server's own /api proxy - see apps/web/vite.config.ts).
+# serve it with nginx as a plain static file server. Reverse-proxying to
+# the API is Traefik's job (see docker-compose.yml's `traefik` service and
+# this service's own labels), not nginx's - this container only serves
+# the built assets with SPA fallback.
 
 FROM node:26-slim AS base
 RUN npm install -g corepack@latest && corepack enable

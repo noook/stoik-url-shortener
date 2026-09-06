@@ -37,6 +37,11 @@ answered, and what landed when — is in [`docs/progress-log.md`](docs/progress-
 - **Redirects are always `302`, never `301`.** A `301` gets cached by the
   browser and stops hitting the server on repeat visits, breaking click
   logging and link edits/expiry for that visitor. Also covered in ADR 0001.
+- **Traefik, not a hand-written nginx `proxy_pass`, routes `/api/*` to the
+  API and everything else to the web app.** The `docker-compose.yml`'s
+  bundled `traefik` service discovers both targets via Docker labels on
+  the `api`/`web` services - nginx inside the `web` container is a plain
+  static file server (SPA fallback only), not a reverse proxy.
 
 ## Running locally
 
@@ -70,10 +75,13 @@ cp .env.example .env   # set a real POSTGRES_PASSWORD
 pnpm docker:up          # docker compose up --build
 ```
 
-Brings up Postgres, the API, and the web app (built, served by nginx,
-proxying `/api/*` to the API container). Migrations run automatically on
-container start (`apps/api/docker-entrypoint.sh`) — no separate migration
-step. Once it's up:
+Brings up Postgres, the API, the built web app served as static files by
+nginx, and a bundled Traefik instance that routes `/api/*` to the API
+service and everything else to the web service (via Docker label
+discovery - see the `api`/`web` services' `traefik.*` labels and the
+`traefik` service itself in `docker-compose.yml`). Migrations run
+automatically on container start (`apps/api/docker-entrypoint.sh`) — no
+separate migration step. Once it's up:
 
 ```sh
 docker compose exec api node dist/cli.js token:create --name "demo"

@@ -746,3 +746,53 @@ and confirmed the web app + API-via-proxy respond correctly. Local dev
 servers (still on the locally-installed Node 22, unaffected since there's
 no `engine-strict` setting) confirmed unaffected afterward. Tore the
 smoke-test stack down and cleaned up the local `.env` used for it.
+
+### [Steering] Reverse proxy: Traefik, not a hand-written nginx proxy_pass
+User asked for Traefik to handle the reverse-proxy role in Docker Compose,
+aligning with the rest of their infrastructure (personal homelab already
+runs everything behind Traefik - see `docs/homelab-deployment-notes.md`),
+rather than the project inventing its own nginx-based proxying just for
+this one deployment. Follow-up clarified web serving stays on nginx
+specifically (lighter/more reliable as a static file server than adding a
+Node-based static server dependency) - only the *proxy* role moves to
+Traefik, not the whole `web` container.
+
+Added a `traefik` service to `docker-compose.yml` (Docker label-based
+service discovery, `--providers.docker.exposedbydefault=false` so only
+explicitly-labeled services get a route) and gave `api`/`web` their own
+`traefik.*` labels (`PathPrefix(\`/api\`)` on `api` with a higher explicit
+priority, `PathPrefix(\`/\`)` catch-all on `web`) instead of a manual
+`nginx.conf` `location /api/ { proxy_pass ... }` block. `apps/web/nginx.conf`
+is now a plain static file server (just the SPA `try_files` fallback) -
+nginx still serves the built React bundle, it just no longer does any
+proxying, which is now entirely Traefik's job.
+
+One real compatibility issue caught only by actually bringing the stack
+up, not by writing the labels and assuming it'd work: `traefik:v3.1`
+against this host's Docker Engine failed immediately with "client version
+1.24 is too old. Minimum supported API version is 1.40" - Docker Engine
+29 raised its minimum supported API version, and older Traefik releases
+hardcode API 1.24 in their Docker-provider client rather than negotiating
+it. Traefik 3.6.1+ added automatic API version negotiation, fixing this;
+bumped the image tag to `traefik:v3.6`.
+
+Also updated `docs/homelab-deployment-notes.md`: the project's own bundled
+`traefik` service (path-based routing on one shared port, meant for
+running the stack standalone) is explicitly distinguished from the
+author's actual homelab's separate, shared, always-on Traefik instance
+(host-based `Host()` routing across many projects) - deploying there means
+dropping the bundled service entirely and switching the `api`/`web` labels
+from `PathPrefix` to `Host()` rules, not running two Traefik instances.
+
+Verified for real in a live browser and via curl, not just `docker compose
+config`: rebuilt both images, brought up all four containers (postgres,
+api, web, traefik), confirmed `/`, `/api/*` (401 with no auth, as
+expected), and a client-side SPA route (`/links/:id`, a hard-refreshed
+deep link) all route correctly through Traefik on one published port,
+logged into the web app and created a link through the full UI end to end,
+confirmed the created link persisted via a fresh API fetch, and confirmed
+the public redirect endpoint still 302s correctly from the API's own
+directly-published port (the redirect route is intentionally not proxied
+through the web/API split, since it's the public-facing short-link surface,
+not part of the app). Tore the smoke-test stack down and cleaned up the
+local `.env` afterward; confirmed the running dev servers were unaffected.

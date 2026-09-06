@@ -13,26 +13,41 @@ themselves.
 - A small LXC container running Docker, reachable over Tailscale.
 - `docker compose` stacks live under `/opt/stacks/` on that host, one
   subdirectory per project - this one would go in `/opt/stacks/url-shortener/`.
-- Traefik runs as its own always-on stack and picks up new services via
-  Docker labels - no manual reverse-proxy config file per project.
-- Cloudflare Tunnel wildcards a personal domain to Traefik, so any new
-  subdomain routes automatically once Traefik knows about it via labels;
-  DNS itself needs no per-project change.
+- A single, shared, always-on Traefik instance runs its own stack on that
+  host and picks up every project's services via Docker labels - it is
+  **not** the same Traefik as the one bundled in this project's own
+  `docker-compose.yml` (which is meant for running the stack in isolation:
+  locally, in CI, for a reviewer). Deploying to the homelab means dropping
+  the bundled `traefik` service from the compose file entirely and relying
+  on the host's shared instance instead - see below.
+- Cloudflare Tunnel wildcards a personal domain to the shared Traefik
+  instance, so any new subdomain routes automatically once Traefik knows
+  about it via labels; DNS itself needs no per-project change.
 
 ## What changes from the generic `docker-compose.yml`
 
-The `web` service gets Traefik labels instead of (or alongside) its
-published port, roughly:
+Remove the bundled `traefik` service and `web`'s published port entirely,
+and change the `api`/`web` services' labels from `PathPrefix` rules
+(routing on one shared entrypoint/port, what the bundled Traefik uses) to
+`Host()` rules (routing on the shared instance's real hostname-based
+entrypoints), roughly:
 
 ```yaml
 services:
+  api:
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.url-shortener-api.rule=Host(`go.example.com`) && PathPrefix(`/api`)
+      - traefik.http.routers.url-shortener-api.entrypoints=websecure
+      - traefik.http.routers.url-shortener-api.tls=true
+      - traefik.http.services.url-shortener-api.loadbalancer.server.port=3000
   web:
     labels:
       - traefik.enable=true
-      - traefik.http.routers.url-shortener.rule=Host(`go.example.com`)
-      - traefik.http.routers.url-shortener.entrypoints=websecure
-      - traefik.http.routers.url-shortener.tls=true
-      - traefik.http.services.url-shortener.loadbalancer.server.port=80
+      - traefik.http.routers.url-shortener-web.rule=Host(`go.example.com`)
+      - traefik.http.routers.url-shortener-web.entrypoints=websecure
+      - traefik.http.routers.url-shortener-web.tls=true
+      - traefik.http.services.url-shortener-web.loadbalancer.server.port=80
 ```
 
 The backtick quoting around the hostname in the `Host()` rule is literal
@@ -41,16 +56,15 @@ Worth double-checking with `docker inspect --format '{{json .Config.Labels}}' <c
 after writing these, since a missed backtick fails silently (the router
 just never matches) rather than erroring at startup.
 
-`postgres` and `api` stay on the compose network, not exposed to Traefik
-directly - only `web`'s nginx (which already reverse-proxies `/api/*` to
-the `api` service, see `apps/web/nginx.conf`) needs a public route.
+`postgres` stays off the shared Traefik network entirely - only `api` and
+`web` need routes on it, same split as the project's own bundled setup.
 
 ## Adding the actual domain
 
-Once the container is reachable via Traefik + the tunnel, the app-level
-step is identical to any other deployment - see `docs/adding-a-domain.md`.
-Nothing homelab-specific about registering the hostname in the `domains`
-table.
+Once the container is reachable via the shared Traefik instance + the
+tunnel, the app-level step is identical to any other deployment - see
+`docs/adding-a-domain.md`. Nothing homelab-specific about registering the
+hostname in the `domains` table.
 
 ## Gotchas hit running Postgres in this environment
 
