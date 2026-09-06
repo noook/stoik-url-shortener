@@ -40,7 +40,7 @@ answered, and what landed when — is in [`docs/progress-log.md`](docs/progress-
 
 ## Running locally
 
-Requires Node 22+, pnpm, and a Postgres instance (or Docker).
+Requires Node 26+, pnpm, and a Postgres instance (or Docker).
 
 ```sh
 pnpm install

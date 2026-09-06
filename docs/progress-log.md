@@ -724,3 +724,25 @@ midnight in 24-hour mode) directly in the browser - this runtime emits
 `"00"`, and the code defensively normalizes `"24"` anyway in case a
 different engine differs. Clean `tsc -b --noEmit` and `oxlint` (no new
 warnings).
+
+### [Steering] Bump minimum Node to 26+
+User asked to prefer Node 26+ over 22 going forward, since 22 is now
+considered old. Updated `package.json`'s `engines.node` (`>=22` ->
+`>=26`), both Dockerfiles' base image (`node:22-slim` -> `node:26-slim`),
+and the README's stated requirement.
+
+One real compatibility issue caught only by actually rebuilding the images,
+not by bumping the tag and assuming it'd work: `corepack enable` failed
+outright on `node:26-slim` (`corepack: not found`) - Corepack was removed
+from Node core as of the v25/v26 line and has to be installed explicitly
+now (`npm install -g corepack@latest && corepack enable`). Fixed in both
+Dockerfiles.
+
+Verified for real: rebuilt both images clean under Node 26, brought the
+full compose stack up (migrations ran automatically, same as before),
+confirmed `node --version` inside the running API container reports v26,
+issued a token and registered a domain via the CLI inside the container,
+and confirmed the web app + API-via-proxy respond correctly. Local dev
+servers (still on the locally-installed Node 22, unaffected since there's
+no `engine-strict` setting) confirmed unaffected afterward. Tore the
+smoke-test stack down and cleaned up the local `.env` used for it.

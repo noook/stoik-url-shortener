@@ -4,8 +4,8 @@
 # (docker-compose.yml sets `context: .`) since this is a pnpm workspace and
 # the API depends on the sibling `packages/shared` workspace package.
 
-FROM node:22-slim AS base
-RUN corepack enable
+FROM node:26-slim AS base
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /app
 
 # --- deps: install once, cached across builds as long as lockfiles don't change ---
