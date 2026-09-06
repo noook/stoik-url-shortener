@@ -658,5 +658,38 @@ map. Verified the local setup commands against the actual npm scripts
 rather than assuming - `pnpm --filter api drizzle-kit migrate` doesn't work
 as an npm-script alias (needs `pnpm --filter api exec drizzle-kit
 migrate`), and `cli`/the seed scripts run from `dist/`, so a build step is
-required first for local (non-Docker) setup - corrected before finalizing
+required for local (non-Docker) setup - corrected before finalizing
 rather than leaving unverified command examples in a deliverable doc.
+
+### [Progress] Targeted test pass: redirect resolution, conflict handling, auth guard
+Added a real e2e suite (`apps/api/test/`, run against the actual dev
+Postgres, no mocking - `AppModule`'s real `DatabaseModule` is used as-is)
+covering the three areas planned early on:
+
+- `redirect.e2e-spec.ts` - the `(domain, code)` redirect resolution from
+  ADR 0001: 302 for an active link, 404 for an unknown code, 404 for a code
+  that exists but on a *different* domain (proving identity really is
+  per-domain, not global), the identical code resolving to two different
+  destinations on two different domains, 410 for a deactivated link, 410
+  for an expired link, 404 for a not-yet-started link, and a click event
+  actually landing in the DB after a successful redirect.
+- `links-conflict.e2e-spec.ts` - the create-time conflict handling: a
+  409 on a duplicate alias within the same domain, the identical alias
+  succeeding on a different domain, `isAliasAvailable`'s per-domain
+  scoping (same check the `check-alias` endpoint uses), a 404 for a
+  nonexistent `domainId`, and confirming two auto-generated codes on the
+  same domain don't collide.
+- `auth-guard.e2e-spec.ts` - `ApiTokenAuthGuard` against a real protected
+  route: no token (401), a fabricated token (401), a valid token via
+  Bearer (200), a valid token via the httpOnly cookie (200), both present
+  at once (200), and a token rejected after being revoked (200 before,
+  401 after) - covers the "must work standalone via Bearer, not just the
+  cookie-based web client" requirement reaffirmed earlier in this log.
+
+Test domains use a random per-run hostname suffix so repeated runs (or
+future CI runs) never collide with each other's leftover rows from a
+previous run - confirmed by running the suite twice in a row, both green,
+no manual cleanup needed between runs. `pnpm --filter api test:e2e`: 4
+files, 20 tests, all passing against the real database. `pnpm --filter api
+lint` clean on both `src/` and the new `test/` files. Confirmed the running
+dev servers were unaffected by the test run afterward.
