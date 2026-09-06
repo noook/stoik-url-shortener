@@ -549,3 +549,31 @@ watched it return to "active"; paged the click log table forward from a
 link with 58 real seeded clicks and confirmed different rows loaded and the
 prev button enabled. Reverted every test edit back to the original data
 afterward. Clean `tsc -b --noEmit`.
+
+### [Progress] Create-link screen built
+Built `create-link-page.tsx`: destination URL, optional name, domain picker
+(shadcn `Select`, populated from `GET /api/domains`, defaulting to the
+account's default domain), optional custom short code (blank generates
+one), optional start/end dates. On success, navigates to the new link's
+detail page (`/links/:id`) - reusing the screen just finished.
+
+Same pattern as `DateFields` on the detail page: a local form-only Zod
+schema for the raw string inputs rather than reusing the shared
+`createLinkSchema` directly, since that schema's `z.coerce.date()` and its
+`alias`/`autoLength` discriminated union are awkward to bind to plain form
+fields (a blank date input, a blank alias input meaning "auto-generate").
+A `toCreateLinkInput` function converts a valid form submission into the
+real `CreateLinkInput` shape - `createLinkSchema` remains the actual
+contract the API validates against regardless of what the form does.
+
+Verified for real in a live browser: created a link with an
+auto-generated code (confirmed navigation to its detail page, correct data,
+empty click log); created a second link with a custom alias (confirmed the
+exact short code landed); attempted to reuse that alias and confirmed the
+API's real 409 conflict message ("Short code ... is already in use on
+...") surfaces verbatim in the form, not a generic error; confirmed
+client-side Zod validation blocks an invalid URL before submission; and
+confirmed Cancel navigates back to the links list without submitting.
+Deactivated both test links afterward via the existing DELETE endpoint
+(which deactivates rather than hard-deletes, per its current behavior) so
+they don't pollute the seeded 200-link dataset. Clean `tsc -b --noEmit`.
