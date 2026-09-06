@@ -16,6 +16,9 @@ import {
 import PlusIcon from "~icons/lucide/plus";
 import ChevronLeftIcon from "~icons/lucide/chevron-left";
 import ChevronRightIcon from "~icons/lucide/chevron-right";
+import CopyIcon from "~icons/lucide/copy";
+import CheckIcon from "~icons/lucide/check";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
 
@@ -55,14 +58,14 @@ export function LinksListPage() {
       {!isError && (
         <>
           <div className="rounded-lg border">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Short link</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Clicks</TableHead>
+                  <TableHead className="w-[22%]">Name</TableHead>
+                  <TableHead className="w-[20%]">Short link</TableHead>
+                  <TableHead className="w-[32%]">Destination</TableHead>
+                  <TableHead className="w-[14%]">Status</TableHead>
+                  <TableHead className="w-[12%] text-right">Clicks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -121,17 +124,43 @@ export function LinksListPage() {
 
 function LinkRow({ link }: { link: Link }) {
   const badge = STATUS_BADGE[link.status];
+  const shortUrl = `${link.domainHostname}/${link.shortCode}`;
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    await navigator.clipboard.writeText(shortUrl);
+    setCopied(true);
+    toast.success("Short link copied to clipboard");
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
-    <TableRow>
-      <TableCell className="max-w-48 truncate">
-        <RouterLink to={`/links/${link.id}`} className="font-medium hover:underline">
+    <TableRow className="group/row">
+      <TableCell className="truncate">
+        <RouterLink to={`/links/${link.id}`} className="block truncate font-medium hover:underline">
           {link.name}
         </RouterLink>
       </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
-        {link.domainHostname}/{link.shortCode}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate">{shortUrl}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label="Copy short link"
+            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-500 hover:bg-muted group-hover/row:opacity-100"
+          >
+            {copied ? (
+              <CheckIcon className="size-3.5 text-foreground" />
+            ) : (
+              <CopyIcon className="size-3.5" />
+            )}
+          </button>
+        </div>
       </TableCell>
-      <TableCell className="max-w-64 truncate text-muted-foreground">
+      <TableCell className="truncate text-muted-foreground">
         {link.destinationUrl}
       </TableCell>
       <TableCell>

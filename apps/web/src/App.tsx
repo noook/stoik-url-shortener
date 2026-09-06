@@ -7,6 +7,7 @@ import { LoginPage } from "@/pages/login-page";
 import { LinksListPage } from "@/pages/links-list-page";
 import { LinkDetailPage } from "@/pages/link-detail-page";
 import { CreateLinkPage } from "@/pages/create-link-page";
+import { Toaster } from "@/components/ui/sonner";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ export function App() {
           </Routes>
         </AuthProvider>
       </BrowserRouter>
+      <Toaster position="bottom-right" />
     </QueryClientProvider>
   );
 }
