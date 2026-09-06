@@ -577,3 +577,42 @@ confirmed Cancel navigates back to the links list without submitting.
 Deactivated both test links afterward via the existing DELETE endpoint
 (which deactivates rather than hard-deletes, per its current behavior) so
 they don't pollute the seeded 200-link dataset. Clean `tsc -b --noEmit`.
+
+### [Progress] Docker Compose for full-stack deploy
+Added `docker-compose.yml` (three services: `postgres`, `api`, `web`) plus
+multi-stage `Dockerfile`s for the API (`apps/api/Dockerfile`) and web
+(`apps/web/Dockerfile`, built assets served by nginx). The web container's
+nginx reverse-proxies `/api/*` to the `api` service (`apps/web/nginx.conf`)
+so the browser sees everything as same-origin, matching the Vite dev
+server's own `/api` proxy closely enough that the httpOnly auth cookie
+needs no CORS configuration to work in either mode. The API image's
+entrypoint (`apps/api/docker-entrypoint.sh`) runs pending Drizzle
+migrations against `DATABASE_URL` before starting the server, so the schema
+is always current on a fresh deploy with no separate migration step or
+container to keep in sync.
+
+Config is `.env`-driven (`.env.example` at the repo root) - Postgres
+credentials, and optional host port overrides for cases where 3000/8080 are
+already taken. Root `package.json` already had `docker:up`/`docker:down`
+scripts wired to `docker compose up --build`/`down`.
+
+One real bug caught only by actually building and running the stack, not by
+reading the Compose file: Postgres 18's image expects its data at
+`/var/lib/postgresql`, not the `/var/lib/postgresql/data` subpath used by
+earlier major versions - mounting the named volume at the old path made the
+container refuse to start ("Error: in 18+, these Docker images are
+configured to store database data in a format which is compatible with
+pg_ctlcluster..."). Fixed by moving the volume mount up one level.
+
+Verified for real, not just `docker compose config`: built both images
+clean, brought the full stack up on isolated ports (3001/8081, so it didn't
+collide with the running dev servers on 3000/5173), confirmed migrations
+ran automatically in the API container's logs, issued a token and
+registered a domain via `docker exec ... node dist/cli.js` inside the
+running API container, logged into the web app served entirely by nginx
+(no dev-server assets involved), created a link through the full UI flow,
+confirmed the public redirect endpoint 302s to the right destination with
+the correct Host-header domain resolution, and confirmed the click counter
+incremented afterward - the entire stack's real request path exercised
+once, end to end. Tore the smoke-test stack down afterward
+(`docker compose down -v`) and removed the local `.env` used for it.
