@@ -32,7 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
  */
 const createLinkFormSchema = z
   .object({
-    destinationUrl: z.string().url("Must be a valid URL"),
+    destinationUrl: z.url("Must be a valid URL"),
     name: z.string().optional(),
     domainId: z.string().min(1, "Pick a domain"),
     alias: z

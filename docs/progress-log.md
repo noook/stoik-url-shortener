@@ -616,3 +616,26 @@ the correct Host-header domain resolution, and confirmed the click counter
 incremented afterward - the entire stack's real request path exercised
 once, end to end. Tore the smoke-test stack down afterward
 (`docker compose down -v`) and removed the local `.env` used for it.
+
+### [Progress] Domain and homelab-deployment docs written
+Added the two docs planned early on
+(`docs/adding-a-domain.md`, `docs/homelab-deployment-notes.md`).
+
+`docs/adding-a-domain.md` is the generic, project-level reference: adding a
+domain has two required parts (infra routing + registering the hostname in
+the app's own `domains` table via `domain:add`), both needed since the
+redirect handler does a strict `(hostname, code)` lookup - infra alone
+won't make a short code resolve, and the app-level row alone won't route
+real traffic. Includes the CLI usage against both a local dev instance and
+a running Docker Compose deployment (`docker compose exec api node
+dist/cli.js domain:add ...`), and a curl-based verification step with the
+three possible outcomes (302/404/410).
+
+`docs/homelab-deployment-notes.md` is explicitly marked at the top as the
+author's own personal setup, not a project requirement - Traefik labels,
+the personal Cloudflare Tunnel routing, and the Postgres 18 volume-mount
+gotcha already fixed in the project's own `docker-compose.yml` (repeated
+here since a stale personal compose file might get copied in by habit).
+Kept clearly separate from the generic `docker-compose.yml` and the
+adding-a-domain doc so a reviewer isn't left thinking Traefik-specific
+config is part of the actual project spec.
