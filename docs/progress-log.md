@@ -509,3 +509,43 @@ seeded link's detail page, edited its name inline, confirmed the PATCH
 persisted after a full page reload, then reverted the test edit. Added the
 shadcn `switch` component (`npx shadcn add switch`) ahead of the toggle
 field the user will build next.
+
+### [Progress] Link detail screen completed: active toggle, date fields, click log
+Finished the remaining pieces left as a pairing note in the previous entry.
+Extracted the status badge (`STATUS_BADGE` map) and hover-to-copy short link
+(with its `group/row` vs. standalone `group/copy` hover variants) out of
+`links-list-page.tsx` into shared components
+(`components/link-status-badge.tsx`, `components/short-link-copy.tsx`) and
+reused both on the detail page and the list, rather than duplicating the
+markup a second time.
+
+`ActiveToggle` binds the shadcn `Switch` directly to `isActive`, calling
+`updateMutation.mutate({ isActive })` from `onCheckedChange` - no form
+needed for a single boolean. `DateFields` handles `startAt`/`endAt` with
+`<Input type="datetime-local">`; empty input clears a date (submits `null`,
+which `updateLinkSchema` accepts). `ClickLogTable` renders `clicksData.items`
+(time, IP, referrer, user agent) with prev/next-only pagination, since
+`GET /api/links/:id/clicks` doesn't return a `total` to compute a page count
+from.
+
+One real bug caught and fixed during live testing: initially reused the
+shared `updateLinkSchema` (with `z.coerce.date()`) as the date fields' own
+react-hook-form resolver. Since react-hook-form validates against a Zod
+schema's *output* type, the resolver coerced the raw `datetime-local` string
+into an actual `Date` before `onSubmit` saw it - fine on the first save, but
+a second validation pass (e.g. a later blur) then re-ran the same coercion
+on an already-a-`Date` value and failed. Fixed by giving `DateFields` its
+own tiny string-only local schema for the two raw inputs, converting to
+`Date` by hand before calling the shared `onSave` - `updateLinkSchema`
+remains the single source of truth for what the API itself accepts.
+
+Verified for real in a live browser, not just a build check: toggled
+`isActive` off and back on (status badge updated live both times, confirmed
+via the API response between toggles); set an end date via the UI, confirmed
+it persisted through a fresh API fetch, cleared it back to `null`, confirmed
+that persisted too; set a start date in the future and confirmed the status
+badge correctly flipped to "scheduled", then cleared it back to null and
+watched it return to "active"; paged the click log table forward from a
+link with 58 real seeded clicks and confirmed different rows loaded and the
+prev button enabled. Reverted every test edit back to the original data
+afterward. Clean `tsc -b --noEmit`.

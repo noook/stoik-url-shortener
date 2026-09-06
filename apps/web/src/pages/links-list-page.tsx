@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
-import type { Link, LinkPage, LinkStatus } from "@url-shortener/shared";
+import type { Link, LinkPage } from "@url-shortener/shared";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { LinkStatusBadge } from "@/components/link-status-badge";
+import { ShortLinkCopy } from "@/components/short-link-copy";
 import {
   Table,
   TableBody,
@@ -16,18 +17,8 @@ import {
 import PlusIcon from "~icons/lucide/plus";
 import ChevronLeftIcon from "~icons/lucide/chevron-left";
 import ChevronRightIcon from "~icons/lucide/chevron-right";
-import CopyIcon from "~icons/lucide/copy";
-import CheckIcon from "~icons/lucide/check";
-import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
-
-const STATUS_BADGE: Record<LinkStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  active: { label: "Active", variant: "default" },
-  scheduled: { label: "Scheduled", variant: "outline" },
-  expired: { label: "Expired", variant: "secondary" },
-  inactive: { label: "Inactive", variant: "destructive" },
-};
 
 export function LinksListPage() {
   const [page, setPage] = useState(1);
@@ -123,18 +114,7 @@ export function LinksListPage() {
 }
 
 function LinkRow({ link }: { link: Link }) {
-  const badge = STATUS_BADGE[link.status];
   const shortUrl = `${link.domainHostname}/${link.shortCode}`;
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    await navigator.clipboard.writeText(shortUrl);
-    setCopied(true);
-    toast.success("Short link copied to clipboard");
-    setTimeout(() => setCopied(false), 1500);
-  }
 
   return (
     <TableRow className="group/row">
@@ -144,27 +124,13 @@ function LinkRow({ link }: { link: Link }) {
         </RouterLink>
       </TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate">{shortUrl}</span>
-          <button
-            type="button"
-            onClick={handleCopy}
-            aria-label="Copy short link"
-            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-500 hover:bg-muted group-hover/row:opacity-100"
-          >
-            {copied ? (
-              <CheckIcon className="size-3.5 text-foreground" />
-            ) : (
-              <CopyIcon className="size-3.5" />
-            )}
-          </button>
-        </div>
+        <ShortLinkCopy shortUrl={shortUrl} standalone={false} />
       </TableCell>
       <TableCell className="truncate text-muted-foreground">
         {link.destinationUrl}
       </TableCell>
       <TableCell>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <LinkStatusBadge status={link.status} />
       </TableCell>
       <TableCell className="text-right">{link.clickCount}</TableCell>
     </TableRow>
