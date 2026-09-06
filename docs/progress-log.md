@@ -485,3 +485,27 @@ distinct badge variants per status), click count, with prev/next pagination.
 Verified against the 200-link seeded dataset in a real browser: correct
 pagination counts (203 total / 11 pages), status badges rendering correctly
 across all four states, and click-through to a link's detail route working.
+
+### [Progress] Link detail screen: data layer + one worked inline-edit field
+Per the user's stated preference to learn React by writing it himself with
+the agent pairing, not autonomously: wired up the full data layer in
+`link-detail-page.tsx` (`GET /api/links/:id` and `GET /api/links/:id/clicks`
+via `useQuery`, a shared `updateMutation` via `useMutation` that PATCHes and
+writes the response straight back into the `["link", id]` query cache) and
+built one field - inline-editable `name` - as a fully worked example of the
+pattern: `react-hook-form` + `zodResolver` against the shared
+`updateLinkSchema` (same shared-schema trick as the login form), saving
+on blur. Left the active-toggle, start/end date fields, and paginated click
+log table as a detailed pairing note in the file (which existing pieces to
+reuse - `links-list-page.tsx`'s status badge/short-link markup, the
+already-installed shadcn `Switch` component - and specific gotchas: the
+Zod `z.input` vs. inferred-output type split needed for `react-hook-form`
+when a schema uses `z.coerce.date()`, and the click-endpoint's response
+shape not including a `total`, which affects whether the pager can show a
+page count or only prev/next).
+
+Verified for real in a live browser (not just a build check): opened a
+seeded link's detail page, edited its name inline, confirmed the PATCH
+persisted after a full page reload, then reverted the test edit. Added the
+shadcn `switch` component (`npx shadcn add switch`) ahead of the toggle
+field the user will build next.
