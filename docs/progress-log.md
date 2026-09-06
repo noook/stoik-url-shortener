@@ -693,3 +693,34 @@ no manual cleanup needed between runs. `pnpm --filter api test:e2e`: 4
 files, 20 tests, all passing against the real database. `pnpm --filter api
 lint` clean on both `src/` and the new `test/` files. Confirmed the running
 dev servers were unaffected by the test run afterward.
+
+### [Steering] Two standing conventions: no deprecated Zod v4 APIs, prefer Intl.* for formatting
+User asked for two adjustments going forward: never use a deprecated Zod v4
+API (e.g. the old chained `.string().url()`/`.string().uuid()`/etc. forms -
+Zod v4 moved these to top-level `z.url()`/`z.uuid()`, which the shared
+schemas already use throughout `packages/shared`, confirmed by an audit -
+no deprecated forms found), and prefer `Intl.DateTimeFormat` (and other
+`Intl.*` APIs) over ad-hoc formatting (`Date`'s own `getFullYear`/`getMonth`/etc.
+getters, or locale-dependent-but-unconfigurable `toLocaleString()`) wherever
+something needs formatting for display.
+
+Applied the second one immediately: extracted `apps/web/src/lib/date-format.ts`
+with `formatDateTime` (an `Intl.DateTimeFormat` instance with explicit
+`dateStyle`/`timeStyle`, used by the click log table) and `toDatetimeLocal`
+(now built on `Intl.DateTimeFormat('en-CA', ...).formatToParts()` rather than
+manual `getFullYear`/`getMonth`/`padStart` calls, still producing the exact
+`"yyyy-MM-ddTHH:mm"` string `<input type="datetime-local">` expects).
+`fromDatetimeLocal` also moved there for colocation. `link-detail-page.tsx`
+now imports all three instead of defining local versions.
+
+Verified for real in a live browser, not just a type check: reloaded the
+link detail page and confirmed the click log's `formatDateTime` output
+renders correctly; set a start date through the actual `datetime-local`
+input, confirmed it round-trips (`toDatetimeLocal(fromDatetimeLocal(x))`
+same value) through a full page reload, then reverted the test edit. Also
+checked the `Intl.DateTimeFormat('en-CA', { hour12: false })` midnight edge
+case (some engines are documented to emit `"24"` instead of `"00"` for
+midnight in 24-hour mode) directly in the browser - this runtime emits
+`"00"`, and the code defensively normalizes `"24"` anyway in case a
+different engine differs. Clean `tsc -b --noEmit` and `oxlint` (no new
+warnings).

@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Link, ClickEventPage, UpdateLinkInput } from "@url-shortener/shared";
 import { updateLinkSchema } from "@url-shortener/shared";
 import { api } from "@/lib/api-client";
+import { formatDateTime, toDatetimeLocal, fromDatetimeLocal } from "@/lib/date-format";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -227,22 +228,6 @@ function DateFields({ link, onSave }: { link: Link; onSave: (patch: UpdateLinkIn
   );
 }
 
-/** Date -> "yyyy-MM-ddTHH:mm" in local time, what <input type="datetime-local"> expects.
- *  Accepts a Date or an ISO string, since the API client returns raw JSON (dates arrive
- *  as strings, not parsed through the zod schema - only the NestJS side coerces). */
-function toDatetimeLocal(date: Date | string | null): string {
-  if (!date) return "";
-  const d = date instanceof Date ? date : new Date(date);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** Inverse of toDatetimeLocal - "" (cleared) becomes null, a filled value becomes a Date. */
-function fromDatetimeLocal(value: string | undefined): Date | null {
-  if (!value) return null;
-  return new Date(value);
-}
-
 function ClickLogTable({
   data,
   isLoading,
@@ -288,7 +273,7 @@ function ClickLogTable({
             {data?.items.map((click) => (
               <TableRow key={click.id}>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {new Date(click.occurredAt).toLocaleString()}
+                  {formatDateTime(click.occurredAt)}
                 </TableCell>
                 <TableCell className="font-mono text-xs">{click.ip ?? "—"}</TableCell>
                 <TableCell className="max-w-64 truncate text-muted-foreground">
