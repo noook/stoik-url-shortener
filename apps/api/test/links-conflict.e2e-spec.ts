@@ -1,5 +1,6 @@
 import { INestApplication } from "@nestjs/common";
 import { customAlphabet } from "nanoid";
+import type { CreateLinkInput } from "@url-shortener/shared";
 import { createTestApp } from "./utils/test-app.js";
 import { DomainsService } from "../src/domains/domains.service.js";
 import { LinksService } from "../src/links/links.service.js";
@@ -35,14 +36,14 @@ describe("Short-code / domain conflict handling (e2e, ADR 0001)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/first",
       alias: "taken-alias",
-    } as never);
+    } satisfies CreateLinkInput);
 
     await expect(
       linksService.create({
         domainId: domainA.id,
         destinationUrl: "https://example.com/second",
         alias: "taken-alias",
-      } as never),
+      } satisfies CreateLinkInput),
     ).rejects.toMatchObject({
       status: 409,
     });
@@ -53,14 +54,14 @@ describe("Short-code / domain conflict handling (e2e, ADR 0001)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/domain-a-version",
       alias: "cross-domain-alias",
-    } as never);
+    } satisfies CreateLinkInput);
 
     // Same alias, different domain - must succeed, per ADR 0001.
     const linkOnB = await linksService.create({
       domainId: domainB.id,
       destinationUrl: "https://example.com/domain-b-version",
       alias: "cross-domain-alias",
-    } as never);
+    } satisfies CreateLinkInput);
 
     expect(linkOnB.shortCode).toBe("cross-domain-alias");
     expect(linkOnB.domainId).toBe(domainB.id);
@@ -71,7 +72,7 @@ describe("Short-code / domain conflict handling (e2e, ADR 0001)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/availability-check",
       alias: "availability-check-alias",
-    } as never);
+    } satisfies CreateLinkInput);
 
     const availableOnSameDomain = await linksService.isAliasAvailable(domainA.id, "availability-check-alias");
     const availableOnOtherDomain = await linksService.isAliasAvailable(domainB.id, "availability-check-alias");
@@ -86,7 +87,7 @@ describe("Short-code / domain conflict handling (e2e, ADR 0001)", () => {
         domainId: "00000000-0000-0000-0000-000000000000",
         destinationUrl: "https://example.com/no-such-domain",
         alias: "orphan-alias",
-      } as never),
+      } satisfies CreateLinkInput),
     ).rejects.toMatchObject({
       status: 404,
     });
@@ -96,11 +97,11 @@ describe("Short-code / domain conflict handling (e2e, ADR 0001)", () => {
     const linkOne = await linksService.create({
       domainId: domainA.id,
       destinationUrl: "https://example.com/auto-one",
-    } as never);
+    } satisfies CreateLinkInput);
     const linkTwo = await linksService.create({
       domainId: domainA.id,
       destinationUrl: "https://example.com/auto-two",
-    } as never);
+    } satisfies CreateLinkInput);
 
     expect(linkOne.shortCode).not.toBe(linkTwo.shortCode);
   });

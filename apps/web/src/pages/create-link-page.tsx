@@ -220,7 +220,7 @@ function toCreateLinkInput(values: CreateLinkFormValues): CreateLinkInput {
     startAt: values.startAt ? new Date(values.startAt) : undefined,
     endAt: values.endAt ? new Date(values.endAt) : undefined,
     ...(values.alias ? { alias: values.alias } : {}),
-  } as CreateLinkInput;
+  } satisfies CreateLinkInput;
 }
 
 /** ofetch throws a FetchError whose `.data` is the Nest error body (`{ message }`) - surface that verbatim rather than a generic failure string. */

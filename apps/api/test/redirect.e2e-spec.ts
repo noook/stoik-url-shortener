@@ -1,6 +1,7 @@
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { customAlphabet } from "nanoid";
+import type { CreateLinkInput } from "@url-shortener/shared";
 import { createTestApp } from "./utils/test-app.js";
 import { DomainsService } from "../src/domains/domains.service.js";
 import { LinksService } from "../src/links/links.service.js";
@@ -39,7 +40,7 @@ describe("Redirect resolution (e2e)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/active",
       alias: "active-link",
-    } as never);
+    } satisfies CreateLinkInput);
 
     const res = await request(app.getHttpServer())
       .get(`/${link.shortCode}`)
@@ -62,7 +63,7 @@ describe("Redirect resolution (e2e)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/domain-scoped",
       alias: "domain-scoped-link",
-    } as never);
+    } satisfies CreateLinkInput);
 
     // Same code, requested against domain B, where it was never created - ADR 0001.
     const res = await request(app.getHttpServer())
@@ -78,12 +79,12 @@ describe("Redirect resolution (e2e)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/on-a",
       alias: shared,
-    } as never);
+    } satisfies CreateLinkInput);
     const linkB = await linksService.create({
       domainId: domainB.id,
       destinationUrl: "https://example.com/on-b",
       alias: shared,
-    } as never);
+    } satisfies CreateLinkInput);
 
     expect(linkA.shortCode).toBe(shared);
     expect(linkB.shortCode).toBe(shared);
@@ -100,7 +101,7 @@ describe("Redirect resolution (e2e)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/deactivated",
       alias: "deactivated-link",
-    } as never);
+    } satisfies CreateLinkInput);
     await linksService.deactivate(link.id);
 
     const res = await request(app.getHttpServer())
@@ -116,7 +117,7 @@ describe("Redirect resolution (e2e)", () => {
       destinationUrl: "https://example.com/expired",
       alias: "expired-link",
       endAt: new Date(Date.now() - 60_000),
-    } as never);
+    } satisfies CreateLinkInput);
 
     const res = await request(app.getHttpServer())
       .get(`/${link.shortCode}`)
@@ -131,7 +132,7 @@ describe("Redirect resolution (e2e)", () => {
       destinationUrl: "https://example.com/not-yet-active",
       alias: "not-yet-active-link",
       startAt: new Date(Date.now() + 60_000),
-    } as never);
+    } satisfies CreateLinkInput);
 
     const res = await request(app.getHttpServer())
       .get(`/${link.shortCode}`)
@@ -145,7 +146,7 @@ describe("Redirect resolution (e2e)", () => {
       domainId: domainA.id,
       destinationUrl: "https://example.com/click-tracked",
       alias: "click-tracked-link",
-    } as never);
+    } satisfies CreateLinkInput);
 
     const before = await linksService.findById(link.id);
     expect(before?.clickCount).toBe(0);
