@@ -129,13 +129,21 @@ function NameField({ link, onSave }: { link: Link; onSave: (patch: UpdateLinkInp
   );
 }
 
-/** Single boolean, no form needed - flips straight through the shared update mutation. */
+/**
+ * Single boolean, no form needed - flips straight through the shared update
+ * mutation. Deliberately a plain <label>, not shadcn's `FieldLabel`: that
+ * component bakes in `has-data-checked:bg-primary/5` (+ border) styling
+ * meant for the "whole label is a bordered, selectable card" pattern
+ * (checkbox/radio groups) - here the switch is just an inline label, not a
+ * card, so that rule fires as soon as `isActive` is true and paints an
+ * unintended tinted background behind the label.
+ */
 function ActiveToggle({ isActive, onSave }: { isActive: boolean; onSave: (isActive: boolean) => void }) {
   return (
-    <FieldLabel className="flex-row-reverse items-center gap-2 border-0 p-0 hover:bg-transparent">
+    <label className="flex flex-row-reverse items-center gap-2">
       <span className="text-sm text-muted-foreground">Active</span>
       <Switch checked={isActive} onCheckedChange={onSave} />
-    </FieldLabel>
+    </label>
   );
 }
 
