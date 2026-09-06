@@ -112,9 +112,12 @@ export function CreateLinkPage() {
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>Label</FieldLabel>
                     <FieldContent>
-                      <Input {...field} id={field.name} placeholder="Optional - defaults to the destination URL" aria-invalid={fieldState.invalid} />
+                      <Input {...field} id={field.name} placeholder="e.g. Q3 launch tweet" aria-invalid={fieldState.invalid} />
+                      <FieldDescription>
+                        How this link shows up in your list - not part of the URL. Leave blank to just use the destination URL.
+                      </FieldDescription>
                       {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </FieldContent>
                   </Field>

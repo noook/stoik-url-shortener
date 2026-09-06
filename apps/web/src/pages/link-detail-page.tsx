@@ -65,7 +65,9 @@ export function LinkDetailPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <NameField link={link} onSave={(patch) => updateMutation.mutate(patch)} />
-          <p className="mt-1 truncate text-sm text-muted-foreground">{link.destinationUrl}</p>
+          {link.name !== link.destinationUrl && (
+            <p className="mt-1 truncate text-sm text-muted-foreground">{link.destinationUrl}</p>
+          )}
           <div className="mt-2 font-mono text-xs text-muted-foreground">
             <ShortLinkCopy shortUrl={shortUrl} />
           </div>
@@ -95,7 +97,15 @@ export function LinkDetailPage() {
   );
 }
 
-/** Inline-editable name field: react-hook-form + zodResolver against the shared updateLinkSchema, saving on blur. */
+/**
+ * Inline-editable label (`name` on the API/schema; "Label" is friendlier UI
+ * copy - see the field description on the create-link form for why). Backed
+ * by react-hook-form + zodResolver against the shared updateLinkSchema,
+ * saving on blur. A dashed underline on hover (and a solid one on focus)
+ * marks this as an editable field rather than a static heading - it looks
+ * like plain text otherwise, which made it easy to miss that it's a form
+ * control at all.
+ */
 function NameField({ link, onSave }: { link: Link; onSave: (patch: UpdateLinkInput) => void }) {
   const form = useForm<UpdateLinkFormValues>({
     resolver: zodResolver(updateLinkSchema),
@@ -113,12 +123,16 @@ function NameField({ link, onSave }: { link: Link; onSave: (patch: UpdateLinkInp
         control={form.control}
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor={field.name} className="text-xs font-normal text-muted-foreground">
+              Label
+            </FieldLabel>
             <FieldContent>
               <Input
                 {...field}
+                id={field.name}
                 value={field.value ?? ""}
                 aria-invalid={fieldState.invalid}
-                className="h-auto border-none px-0 text-lg font-medium shadow-none focus-visible:ring-0"
+                className="h-auto rounded-none border-0 border-b border-dashed border-transparent px-0 text-lg font-medium shadow-none transition-colors hover:border-border focus-visible:border-b-primary focus-visible:border-solid focus-visible:ring-0"
               />
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </FieldContent>

@@ -797,6 +797,33 @@ through the web/API split, since it's the public-facing short-link surface,
 not part of the app). Tore the smoke-test stack down and cleaned up the
 local `.env` afterward; confirmed the running dev servers were unaffected.
 
+### [Steering] Name field UX: unclear purpose, no editable affordance, redundant with destination URL
+User flagged three related issues on the link detail screen's `name` field:
+it wasn't clear what the field was for or how it differed from the
+destination URL, the field looked like a static heading rather than
+something editable, and for the common case where the name equals the
+destination URL (the default when left blank at creation), the same text
+rendered twice on the page.
+
+Addressed each, per user's picks when asked to clarify scope:
+- Renamed the field from "Name" to "Label" everywhere in the UI (create
+  form, detail page, links list column header) - the underlying API/schema
+  field is still `name`, this is UI copy only. Added a field description on
+  the create form explaining it's for how the link shows up in the list,
+  not part of the URL, and defaults to the destination URL when left blank.
+- Gave the editable label on the detail page a dashed underline on hover
+  and a solid one on focus, so it reads as a form control instead of plain
+  text - it had zero visual affordance before this.
+- Hid the destination-URL line under the label on the detail page
+  specifically when `link.name === link.destinationUrl` (the default,
+  common case) - it's still shown whenever the two differ.
+
+Verified live: checked both cases (a link with a distinct label vs. one
+where label equals the destination URL) via the real dev API, confirmed
+hover/focus underline states via CDP mouse events, confirmed a save still
+round-trips through a reload and reverted the test edit. Clean
+`tsc -b --noEmit`, oxlint (no new warnings), and vite build.
+
 ### [Steering] Typed per-endpoint API client, not a single generic method
 User pointed out the shared `api<T>(url, options)` pattern made every call
 site responsible for two things that should live in one place: the literal

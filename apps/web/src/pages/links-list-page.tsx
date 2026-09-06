@@ -51,7 +51,7 @@ export function LinksListPage() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[22%]">Name</TableHead>
+                  <TableHead className="w-[22%]">Label</TableHead>
                   <TableHead className="w-[20%]">Short link</TableHead>
                   <TableHead className="w-[32%]">Destination</TableHead>
                   <TableHead className="w-[14%]">Status</TableHead>
