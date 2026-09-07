@@ -971,6 +971,44 @@ running containers), confirmed via `docker exec` that
 DB writes succeed), then tore it down and confirmed the dev Postgres
 container was unaffected.
 
+### [Steering] Fix docker-compose.homelab.yml against the real shared Traefik config
+The previous version of `docker-compose.homelab.yml` guessed at the shared
+instance's entrypoint name (`websecure`) and added a `tls=true` label
+without ever having seen its actual config - wrong on both counts. User
+hit `entryPoint "websecure" doesn't exist` / `no valid entryPoint for this
+router` running it for real, then shared the shared instance's actual
+`traefik.yml` + compose file.
+
+Real config: a single entrypoint named `web` on `:80` (TLS is terminated
+upstream by the Cloudflare Tunnel, not by Traefik itself - so a `tls=true`
+label was actively wrong, not just mis-named), and
+`providers.docker.network: proxy`, an external network - the shared
+instance only discovers containers actually joined to it, regardless of
+labels.
+
+- `docker-compose.homelab.yml`: `entrypoints=web` (not `websecure`),
+  dropped the `tls=true` labels entirely, added `networks: [default,
+  proxy]` to both `api`/`web` plus a top-level `networks: proxy: external:
+  true` declaration.
+- `docs/homelab-deployment-notes.md`: rewrote the "what changes" section
+  to match, and added an explicit callout of the two failure modes this
+  setup produces if missed - wrong entrypoint name fails loud at startup,
+  missing the `proxy` network fails silent (valid router, but the
+  container is never discovered, so it just never matches).
+
+Verified for real this time, not just `docker compose config`: created a
+throwaway `proxy` Docker network, brought the stack up against it,
+confirmed both containers actually joined `proxy` via `docker inspect`,
+then ran an actual `traefik:v3.6` container configured identically to the
+shared instance (`--entrypoints.web.address=:80`,
+`--providers.docker.network=proxy`) against the same network and curled
+through it with the right `Host` header - both the web SPA (200) and the
+API (401, correctly unauthenticated but reached) resolved with no
+entrypoint error this time. Confirms the fix, not just that the labels
+parse. Tore everything down (throwaway Traefik container, the stack, the
+throwaway network) and confirmed the dev Postgres container was
+unaffected.
+
 ### [Steering] Typed per-endpoint API client, not a single generic method
 User pointed out the shared `api<T>(url, options)` pattern made every call
 site responsible for two things that should live in one place: the literal

@@ -27,27 +27,36 @@ themselves.
 ## What changes from the generic `docker-compose.yml`
 
 Remove the bundled `traefik` service and `web`'s published port entirely,
-and change the `api`/`web` services' labels from `PathPrefix` rules
-(routing on one shared entrypoint/port, what the bundled Traefik uses) to
-`Host()` rules (routing on the shared instance's real hostname-based
-entrypoints), roughly:
+and change the `api`/`web` services' labels and networking to match the
+shared instance's actual config (see below for what that config is):
+`PathPrefix` rules (routing on one shared entrypoint/port, what the
+bundled Traefik uses) become `Host()` rules on the shared instance's `web`
+entrypoint, and both services join the shared instance's external `proxy`
+Docker network so it can discover them at all - roughly:
 
 ```yaml
 services:
   api:
+    networks:
+      - default
+      - proxy
     labels:
       - traefik.enable=true
       - traefik.http.routers.url-shortener-api.rule=Host(`go.example.com`) && PathPrefix(`/api`)
-      - traefik.http.routers.url-shortener-api.entrypoints=websecure
-      - traefik.http.routers.url-shortener-api.tls=true
+      - traefik.http.routers.url-shortener-api.entrypoints=web
       - traefik.http.services.url-shortener-api.loadbalancer.server.port=3000
   web:
+    networks:
+      - default
+      - proxy
     labels:
       - traefik.enable=true
       - traefik.http.routers.url-shortener-web.rule=Host(`go.example.com`)
-      - traefik.http.routers.url-shortener-web.entrypoints=websecure
-      - traefik.http.routers.url-shortener-web.tls=true
+      - traefik.http.routers.url-shortener-web.entrypoints=web
       - traefik.http.services.url-shortener-web.loadbalancer.server.port=80
+networks:
+  proxy:
+    external: true
 ```
 
 The backtick quoting around the hostname in the `Host()` rule is literal
@@ -55,6 +64,19 @@ Traefik label syntax, not a typo - Traefik's own label parser expects it.
 Worth double-checking with `docker inspect --format '{{json .Config.Labels}}' <container>`
 after writing these, since a missed backtick fails silently (the router
 just never matches) rather than erroring at startup.
+
+The shared instance's own config only defines a single entrypoint named
+`web` on `:80` (TLS is terminated upstream by the Cloudflare Tunnel, not
+by Traefik itself), and pins `providers.docker.network: proxy` - it only
+discovers containers actually joined to that external network, regardless
+of what labels they carry. Two mistakes this setup will silently produce
+if missed:
+- Using `entrypoints=websecure` (the common convention elsewhere) instead
+  of the actual `web` name here fails hard and loud at startup: `entryPoint
+  "websecure" doesn't exist` / `no valid entryPoint for this router`.
+- Forgetting to join `proxy` fails silently instead - the router is valid,
+  but Traefik never sees the container, so the route just 404s/never
+  matches, with nothing obviously wrong in the logs.
 
 `postgres` stays off the shared Traefik network entirely - only `api` and
 `web` need routes on it, same split as the project's own bundled setup.
@@ -80,22 +102,36 @@ docker compose -f docker-compose.yml -f docker-compose.homelab.yml \
   up -d --build postgres api web
 ```
 
+Requires the `proxy` external network to already exist - it's created
+once by the shared Traefik stack itself (`networks: proxy: external:
+true` there), not by this project, so `docker compose` will error out
+clearly (`network proxy declared as external, but could not be found`) if
+the shared stack isn't already running.
+
 Deliberately `postgres api web` and not the bundled `traefik` service -
 the shared instance handles routing, so nothing needs to be started for it
-here. The override only replaces the `api`/`web` services' Traefik labels
-(`PathPrefix` on the bundled instance's port -> `Host()` + TLS on the
-shared instance's real entrypoints) and `api`'s `WEB_ORIGIN`; `postgres`
-is untouched by it, same split as above. It reads `HOMELAB_HOSTNAME` from
-`.env` rather than hardcoding a domain, so it stays generic and reusable
+here. The override replaces the `api`/`web` services' Traefik labels
+(`PathPrefix` on the bundled instance's port -> `Host()` on the shared
+instance's actual `web` entrypoint, no `tls` label since Traefik itself
+never terminates TLS here - see above), joins both services to the shared
+instance's `proxy` network, and overrides `api`'s `WEB_ORIGIN`; `postgres`
+is untouched, same split as above. It reads `HOMELAB_HOSTNAME` from `.env`
+rather than hardcoding a domain, so it stays generic and reusable
 regardless of whose homelab it's pointed at - see `.env.example` for the
 variable.
 
-Verified against a real (throwaway) Compose stack: `docker compose config`
-resolves the merged labels correctly (`Host(...)` with real backticks,
-`tls=true`, `WEB_ORIGIN` overridden to `https://...`), the stack comes up
-with `traefik` correctly absent, and the API container is fully functional
-under it (`token:create`/`domain:add` both work against the running
-container).
+Verified against a real (throwaway) Compose stack, including a real
+Traefik container configured to match the shared instance's actual setup
+(`web` entrypoint on `:80`, `providers.docker.network=proxy`, Docker label
+discovery): `docker compose config` resolves the merged labels correctly
+(real `Host()` backticks, `entrypoints=web`, `WEB_ORIGIN` overridden), the
+stack comes up with `traefik` correctly absent and both services joined to
+`proxy`, the API container is fully functional under it
+(`token:create`/`domain:add` both work), and both routers actually
+resolve through a real Traefik instance (`web` and `api` both reachable
+via `Host: <hostname>` with no "no valid entryPoint" error - that error
+was hit once against an earlier draft that guessed `websecure` as the
+entrypoint name, since fixed to the shared instance's actual `web`).
 
 ## Gotchas hit running Postgres in this environment
 
