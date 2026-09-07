@@ -153,6 +153,9 @@ packages/
 scripts/
   token.sh        Issue an API token against a running Docker Compose stack
                   without needing Node/pnpm on the host - Docker only
+docker-compose.yml           Base stack: postgres, api, web, bundled traefik
+docker-compose.homelab.yml   Override for a shared-Traefik homelab deploy -
+                              see docs/homelab-deployment-notes.md
 docs/
   adr/            Architecture decision records
   progress-log.md Full build history

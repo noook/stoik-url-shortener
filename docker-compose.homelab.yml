@@ -1,0 +1,37 @@
+# Homelab override — NOT a substitute for docker-compose.yml, an addition
+# to it. Use both together via `-f`, never edit docker-compose.yml itself
+# for this (that's what causes dirty changes on docker-host):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.homelab.yml \
+#     up -d --build postgres api web
+#
+# Deliberately omits "traefik" from that service list, not from this file -
+# the bundled `traefik` service in docker-compose.yml exists only for
+# running the stack in isolation (local dev, CI, a reviewer). The homelab
+# has its own shared, always-on Traefik instance that already watches the
+# Docker socket and picks up new routers from labels on ANY container, so
+# there's nothing to start for it here - this file only replaces the
+# api/web services' router labels (PathPrefix on a shared local port ->
+# Host()-based TLS routing on the shared instance's real entrypoints) and
+# leaves postgres untouched, same as docs/homelab-deployment-notes.md
+# describes. Requires HOMELAB_HOSTNAME in .env - see .env.example.
+services:
+  api:
+    environment:
+      WEB_ORIGIN: https://${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.api.rule=Host(`${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}`) && PathPrefix(`/api`)
+      - traefik.http.routers.api.entrypoints=websecure
+      - traefik.http.routers.api.tls=true
+      - traefik.http.routers.api.priority=10
+      - traefik.http.services.api.loadbalancer.server.port=3000
+
+  web:
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web.rule=Host(`${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}`)
+      - traefik.http.routers.web.entrypoints=websecure
+      - traefik.http.routers.web.tls=true
+      - traefik.http.routers.web.priority=1
+      - traefik.http.services.web.loadbalancer.server.port=80

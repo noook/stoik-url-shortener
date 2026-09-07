@@ -914,6 +914,63 @@ both issued a working token - then tore the stack down and confirmed dev
 servers were unaffected. `pnpm lint`, `pnpm test` (22/22), and
 `pnpm --filter api test:e2e` (20/20) all still pass.
 
+### [Steering] Homelab override compose file instead of editing docker-compose.yml directly
+Postgres auth error report from the user, plus a stray Traefik "api is not
+enabled" log line, turned out to be two separate things: the Postgres
+failure was real (see below), and the Traefik log line was almost
+certainly the shared homelab Traefik instance logging about a *different*
+stack's dashboard label, not this project - nothing in
+`docker-compose.yml` enables `--api` or defines a `dashboard` router, so
+there was nothing to fix here for that half.
+
+Root cause of the Postgres failure: the user generated
+`POSTGRES_PASSWORD` with `openssl rand -base64 48`, which can include `+`,
+`/`, `=` - safe as a raw password, but those characters need
+percent-encoding once they're embedded in a `postgres://` connection
+string URL, and nothing in this stack does that encoding. `openssl rand
+-hex 32` avoids the whole class of problem (already flagged as a gotcha in
+`docs/homelab-deployment-notes.md` from an earlier session, now hit for
+real). Answered inline, no code change needed for that part - reset
+`POSTGRES_PASSWORD` with a hex-generated value and recreate the volume.
+
+Follow-up ask: a way to deploy to the homelab (Host()-routing, no bundled
+Traefik) without hand-editing `docker-compose.yml` on `docker-host`, which
+was producing dirty local changes outside git every time.
+
+- New `docker-compose.homelab.yml`: a real Compose override file, applied
+  on top of the base with `-f docker-compose.yml -f
+  docker-compose.homelab.yml`, not a copy or a hand-edited duplicate.
+  Replaces only the `api`/`web` services' Traefik labels (`PathPrefix` on
+  the bundled instance's port -> `Host()` + `tls=true` on the shared
+  instance's real entrypoints, matching what
+  `docs/homelab-deployment-notes.md` already prescribed as a manual diff)
+  and `api`'s `WEB_ORIGIN`; `postgres` is untouched, matching the existing
+  split. Reads the target hostname from a new `HOMELAB_HOSTNAME` env var
+  rather than hardcoding a domain, so the file itself stays generic and
+  committable - no personal infra detail baked in, confirmed with the user
+  before committing it (initially unsure whether to commit at all; landed
+  on committing once confirmed the file has zero homelab-specific values).
+  `up` is run against `postgres api web` explicitly, never `traefik` - the
+  shared instance already watches the Docker socket for every container's
+  labels, so nothing needs to be started for it here.
+- `.env.example`: added the new `HOMELAB_HOSTNAME` var (commented out,
+  homelab-only).
+- `docs/homelab-deployment-notes.md`: added a section documenting the
+  override file and the exact `-f`/`up` invocation, replacing what used to
+  be "here's the diff, apply it by hand."
+- README: added both new files to the project structure listing.
+
+Verified for real: `docker compose -f docker-compose.yml -f
+docker-compose.homelab.yml config` resolves the merged labels correctly
+(real `Host()` backticks, `tls=true`, `WEB_ORIGIN` overridden to
+`https://...`, `POSTGRES_PASSWORD`/ports still coming from the base file
+unchanged). Brought up a real throwaway stack with
+`up -d --build postgres api web` (traefik correctly absent from the
+running containers), confirmed via `docker exec` that
+`token:create`/`domain:add` both work against it (migrations ran,
+DB writes succeed), then tore it down and confirmed the dev Postgres
+container was unaffected.
+
 ### [Steering] Typed per-endpoint API client, not a single generic method
 User pointed out the shared `api<T>(url, options)` pattern made every call
 site responsible for two things that should live in one place: the literal
