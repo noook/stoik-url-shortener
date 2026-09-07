@@ -14,7 +14,9 @@ const queryClient = new QueryClient();
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* Dashboard lives under /admin on this domain - keep in sync with
+          vite.config.ts's `base` and docker-compose.yml's `web` router. */}
+      <BrowserRouter basename="/admin">
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

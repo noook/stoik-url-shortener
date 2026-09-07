@@ -9,8 +9,11 @@ import { createApiClient, createApiEndpoints } from "@url-shortener/shared";
 const rawClient = createApiClient({
   baseURL: "/api",
   onUnauthorized: () => {
-    if (window.location.pathname !== "/login") {
-      window.location.assign("/login");
+    // Raw browser navigation, not a React Router link - needs the full
+    // /admin-prefixed path (see vite.config.ts's `base` / App.tsx's
+    // `basename`), not the in-app route path React Router itself uses.
+    if (window.location.pathname !== "/admin/login") {
+      window.location.assign("/admin/login");
     }
   },
 });

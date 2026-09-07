@@ -56,6 +56,7 @@ describe("Redirect resolution (e2e)", () => {
       .set("Host", domainA.hostname);
 
     expect(res.status).toBe(404);
+    expect(res.type).toBe("text/html");
   });
 
   it("404s when the same code exists, but on a different domain - identity is (domain, code)", async () => {
@@ -71,6 +72,13 @@ describe("Redirect resolution (e2e)", () => {
       .set("Host", domainB.hostname);
 
     expect(res.status).toBe(404);
+  });
+
+  it("redirects the bare domain root to the admin dashboard", async () => {
+    const res = await request(app.getHttpServer()).get("/").set("Host", domainA.hostname);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("/admin");
   });
 
   it("allows the identical code to exist on two different domains independently", async () => {
@@ -139,6 +147,7 @@ describe("Redirect resolution (e2e)", () => {
       .set("Host", domainA.hostname);
 
     expect(res.status).toBe(404);
+    expect(res.type).toBe("text/html");
   });
 
   it("logs a click event on a successful redirect", async () => {

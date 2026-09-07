@@ -44,6 +44,17 @@ services:
       # since routing correctness shouldn't depend on an implicit tie-break.
       - traefik.http.routers.api.priority=10
       - traefik.http.services.api.loadbalancer.server.port=3000
+      # Fallback for everything the /api and /admin routers don't claim:
+      # the bare domain root and short codes (GET /:code) - see
+      # RedirectController, which owns "/" (redirects to /admin) and
+      # unresolved codes (its own 404) directly, rather than letting an
+      # unmatched path fall through to the web app's SPA and get silently
+      # swallowed by its client-side routing/fallback. Lowest priority of
+      # the three routers so /api and /admin are matched first.
+      - traefik.http.routers.api-fallback.rule=PathPrefix(`/`)
+      - traefik.http.routers.api-fallback.entrypoints=web
+      - traefik.http.routers.api-fallback.priority=1
+      - traefik.http.routers.api-fallback.service=api
 
   web:
     build:
@@ -54,9 +65,9 @@ services:
       - api
     labels:
       - traefik.enable=true
-      - traefik.http.routers.web.rule=PathPrefix(`/`)
+      - traefik.http.routers.web.rule=PathPrefix(`/admin`)
       - traefik.http.routers.web.entrypoints=web
-      - traefik.http.routers.web.priority=1
+      - traefik.http.routers.web.priority=5
       - traefik.http.services.web.loadbalancer.server.port=80
 
   # Reverse proxy / single ingress point - routes /api/* to the api service

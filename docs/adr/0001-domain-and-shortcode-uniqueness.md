@@ -47,6 +47,12 @@ pre-check: `insertOne` uses `onConflictDoNothing({ target: [links.domainId,
 links.shortCode] })` and treats a `null` return as the signal to either
 retry (auto-generated codes) or surface a `409` (a requested alias).
 
+**Root path is deliberately not a real page.** Requests to the bare domain
+(`GET /`) 302 to `/admin`, and unresolved short codes get a small static
+HTML "not found" page rather than a redirect-service-shaped JSON error -
+this is a human, not an API client, on the other end of a mistyped/expired
+link. See `RedirectController`.
+
 ## Consequences
 
 - Two visitors typing `go1.example.com/promo` and `go2.example.com/promo`

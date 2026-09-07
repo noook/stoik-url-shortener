@@ -41,6 +41,13 @@ services:
       - traefik.http.routers.api.entrypoints=web
       - traefik.http.routers.api.priority=10
       - traefik.http.services.api.loadbalancer.server.port=3000
+      # See docker-compose.yml's api-fallback router for what this owns
+      # (bare root + short codes) - same idea, scoped to this Host() here
+      # since the shared instance routes multiple projects off one entrypoint.
+      - traefik.http.routers.api-fallback.rule=Host(`${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}`) && PathPrefix(`/`)
+      - traefik.http.routers.api-fallback.entrypoints=web
+      - traefik.http.routers.api-fallback.priority=1
+      - traefik.http.routers.api-fallback.service=api
 
   web:
     networks:
@@ -48,9 +55,9 @@ services:
       - proxy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.web.rule=Host(`${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}`)
+      - traefik.http.routers.web.rule=Host(`${HOMELAB_HOSTNAME:?set HOMELAB_HOSTNAME in .env}`) && PathPrefix(`/admin`)
       - traefik.http.routers.web.entrypoints=web
-      - traefik.http.routers.web.priority=1
+      - traefik.http.routers.web.priority=5
       - traefik.http.services.web.loadbalancer.server.port=80
 
 networks:

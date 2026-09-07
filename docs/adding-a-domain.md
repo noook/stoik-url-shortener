@@ -26,6 +26,11 @@ Generic requirement, however you host it:
   see `apps/api/src/links/redirect.controller.ts`). The redirect route has
   no `/api` prefix, unlike the rest of the API, since a short link is
   meant to be typed directly as `https://your-domain.example/AbC123`.
+  This same domain is also expected to serve the admin dashboard under
+  `/admin` (see `docker-compose.yml`'s `web` router) - a reverse proxy
+  fronting this project needs both `/admin` (dashboard) and everything
+  else, including the bare root (redirect service), routed correctly; see
+  that compose file's `api`/`web` labels for the reference split.
 - If you're running the API behind TLS termination, the domain needs a
   valid certificate before real users see it, same as any other domain -
   no code changes here.
@@ -66,6 +71,8 @@ curl -i https://go.example.com/some-short-code
 ```
 
 Should return a `302` to the link's destination if the code exists on that
-domain, a `404` if the domain is registered but the code doesn't exist on
-it (or the domain itself isn't registered yet), or a `410 Gone` if the link
-is deactivated or has expired.
+domain, a `404` (styled HTML page) if the domain is registered but the code
+doesn't exist on it (or the domain itself isn't registered yet), or a `410
+Gone` if the link is deactivated or has expired. `curl -i https://go.example.com/`
+(bare root, no code) should `302` to `/admin`, where the dashboard is served
+- see `RedirectController` in `apps/api/src/links/redirect.controller.ts`.

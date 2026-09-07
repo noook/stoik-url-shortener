@@ -6,6 +6,12 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Dashboard is served under /admin on the same domain as the redirect
+  // service (which owns "/" and bare short codes) - see
+  // apps/api/src/links/redirect.controller.ts and docker-compose.yml's
+  // `web` router. Affects both dev server and build asset URLs; App.tsx's
+  // BrowserRouter `basename` must stay in sync with this.
+  base: '/admin/',
   plugins: [
     react(),
     tailwindcss(),
