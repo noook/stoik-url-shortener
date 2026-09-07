@@ -25,5 +25,11 @@ RUN pnpm --filter @url-shortener/shared build \
 
 FROM nginx:1.27-alpine AS runtime
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+# Served under /admin on the same domain as the redirect service (see
+# apps/api/src/links/redirect.controller.ts and docker-compose.yml's `web`
+# router) - the build output has to physically live at html/admin/... to
+# match the /admin/assets/... URLs vite.config.ts's `base: '/admin/'` bakes
+# into index.html; vite doesn't relocate its own output directory to match
+# `base`, only the URLs referenced inside it.
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html/admin
 EXPOSE 80
