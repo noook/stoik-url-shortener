@@ -17,9 +17,12 @@ export async function createTestApp(): Promise<INestApplication<App>> {
   }).compile();
 
   const app = moduleFixture.createNestApplication();
-  // main.ts applies this in production - tests need it too since the auth
-  // guard and AuthController both read req.cookies.
+  // main.ts applies both of these in production - tests need them too since
+  // the auth guard/AuthController read req.cookies, and RedirectController's
+  // IP-resolution fallback chain (see resolveClientIp) relies on req.ip
+  // reading X-Forwarded-For, which Express only does with trust proxy set.
   app.use(cookieParser());
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
   await app.init();
   return app;
 }

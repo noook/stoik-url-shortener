@@ -13,6 +13,44 @@ import { ClickEventsService } from "./click-events.service.js";
 const ADMIN_PATH = "/admin";
 
 /**
+ * Best-effort real visitor IP for click logging. This app can be deployed
+ * behind very different edges - a Cloudflare Tunnel + Traefik (this
+ * project's own homelab setup, see docs/homelab-deployment-notes.md), a
+ * plain reverse proxy with no CDN, or nothing in front at all (a bare
+ * `docker run` reachable directly) - so this is a fallback chain, not a
+ * single assumption:
+ *
+ * 1. `Cf-Connecting-Ip` - set by Cloudflare's edge to the actual client IP.
+ *    Checked first and independently of Express's `trust proxy`/req.ip
+ *    machinery because a Cloudflare Tunnel (`cloudflared`) does NOT set
+ *    `X-Forwarded-For` at all - only `CF-*` headers - so no `trust proxy`
+ *    configuration on this app, and no `forwardedHeaders.trustedIPs` on
+ *    Traefik, can ever recover a real IP from `X-Forwarded-For` in that
+ *    specific chain. This is the one header actually available there.
+ * 2. `req.ip` (Express `trust proxy`, set in main.ts) - correct for a
+ *    plain reverse-proxy deployment with no Cloudflare in front, where
+ *    `X-Forwarded-For` (not `Cf-Connecting-Ip`) is the real signal.
+ *    `trust proxy` only takes effect when a header is actually present;
+ *    with nothing in front at all this still safely resolves to the raw
+ *    socket peer, which in that deployment shape IS the real visitor.
+ *
+ * Neither header is verified against a trusted-source IP allowlist at
+ * this layer - `Cf-Connecting-Ip` is only meaningful at all if requests
+ * can't reach this app except via the real Cloudflare edge (true for the
+ * homelab: the api container has no published host port, only Traefik ->
+ * this container over the internal `proxy` network - see
+ * docker-compose.homelab.yml), and `X-Forwarded-For` trust is Traefik's
+ * job via `forwardedHeaders.trustedIPs`, not this app's.
+ */
+function resolveClientIp(req: Request): string | null {
+  const cfConnectingIp = req.headers["cf-connecting-ip"];
+  if (typeof cfConnectingIp === "string" && cfConnectingIp.length > 0) {
+    return cfConnectingIp;
+  }
+  return req.ip ?? null;
+}
+
+/**
  * Plain HTML for a visited code that doesn't resolve to anything - shown to
  * a human who followed a typo'd/expired/never-existed short link, as
  * opposed to the framework's default JSON 404 body (still what a
@@ -93,7 +131,7 @@ export class RedirectController {
 
     // Fire-and-forget: never let click logging slow down or fail the redirect.
     void this.clickEventsService.record(link.id, {
-      ip: req.ip ?? null,
+      ip: resolveClientIp(req),
       userAgent: req.headers["user-agent"] ?? null,
       referrer: (Array.isArray(req.headers.referer) ? req.headers.referer[0] : req.headers.referer) ?? null,
     }).catch(() => {

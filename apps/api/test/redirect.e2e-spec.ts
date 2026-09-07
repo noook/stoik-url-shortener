@@ -5,6 +5,7 @@ import type { CreateLinkInput } from "@url-shortener/shared";
 import { createTestApp } from "./utils/test-app.js";
 import { DomainsService } from "../src/domains/domains.service.js";
 import { LinksService } from "../src/links/links.service.js";
+import { ClickEventsService } from "../src/links/click-events.service.js";
 
 // Random suffix per run so parallel/repeat runs never collide on the
 // domains.hostname unique constraint - these tests create real rows against
@@ -15,6 +16,7 @@ describe("Redirect resolution (e2e)", () => {
   let app: INestApplication;
   let domainsService: DomainsService;
   let linksService: LinksService;
+  let clickEventsService: ClickEventsService;
 
   let domainA: { id: string; hostname: string };
   let domainB: { id: string; hostname: string };
@@ -23,6 +25,7 @@ describe("Redirect resolution (e2e)", () => {
     app = await createTestApp();
     domainsService = app.get(DomainsService);
     linksService = app.get(LinksService);
+    clickEventsService = app.get(ClickEventsService);
 
     const a = await domainsService.add(`redirect-a-${runId}.test`);
     const b = await domainsService.add(`redirect-b-${runId}.test`);
@@ -168,5 +171,49 @@ describe("Redirect resolution (e2e)", () => {
 
     const after = await linksService.findById(link.id);
     expect(after?.clickCount).toBe(1);
+  });
+
+  it("prefers Cf-Connecting-Ip over req.ip/X-Forwarded-For for click IPs", async () => {
+    // Covers the Cloudflare Tunnel deployment shape (see
+    // docs/homelab-deployment-notes.md): cloudflared does not set
+    // X-Forwarded-For at all, only CF-* headers - so this must win
+    // regardless of what X-Forwarded-For carries, or is missing entirely.
+    const link = await linksService.create({
+      domainId: domainA.id,
+      destinationUrl: "https://example.com/cf-ip-tracked",
+      alias: "cf-ip-tracked-link",
+    } satisfies CreateLinkInput);
+
+    await request(app.getHttpServer())
+      .get(`/${link.shortCode}`)
+      .set("Host", domainA.hostname)
+      .set("Cf-Connecting-Ip", "203.0.113.42")
+      .set("X-Forwarded-For", "198.51.100.7");
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const { items } = await clickEventsService.listForLink(link.id, 1, 20);
+    expect(items[0]?.ip).toBe("203.0.113.42");
+  });
+
+  it("falls back to req.ip (X-Forwarded-For, via Express trust proxy) when there's no Cf-Connecting-Ip", async () => {
+    // Covers a plain-reverse-proxy deployment with no Cloudflare in front
+    // (see main.ts's `trust proxy` setting) - the other end of the
+    // fallback chain from the test above.
+    const link = await linksService.create({
+      domainId: domainA.id,
+      destinationUrl: "https://example.com/xff-tracked",
+      alias: "xff-tracked-link",
+    } satisfies CreateLinkInput);
+
+    await request(app.getHttpServer())
+      .get(`/${link.shortCode}`)
+      .set("Host", domainA.hostname)
+      .set("X-Forwarded-For", "198.51.100.7");
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const { items } = await clickEventsService.listForLink(link.id, 1, 20);
+    expect(items[0]?.ip).toBe("198.51.100.7");
   });
 });
