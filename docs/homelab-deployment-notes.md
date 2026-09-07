@@ -79,7 +79,16 @@ if missed:
   matches, with nothing obviously wrong in the logs.
 
 `postgres` stays off the shared Traefik network entirely - only `api` and
-`web` need routes on it, same split as the project's own bundled setup.
+`web` need routes on it (`url-shortener-api`/`url-shortener-api-fallback`/
+`url-shortener-web` in the actual labels), same split as the project's own
+bundled setup. Every router/service name here is prefixed with the project
+slug (`url-shortener-`) rather than the bare service name (`api`, `web`) -
+the shared instance discovers labels from every project's containers on
+the same `proxy` network, and Traefik namespaces routers/services by
+whatever key the labels give it, not automatically by project/stack. A
+bare `api` or `web` would silently collide with any other project on this
+host using the same generic name, with no startup error - Traefik just
+lets one shadow the other.
 
 ## Adding the actual domain
 
