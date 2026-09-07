@@ -3,11 +3,28 @@ import consola from "consola";
 import { ApiTokensService } from "../auth/api-tokens.service.js";
 
 interface TokenCreateOptions {
-  name: string;
+  name?: string;
+}
+
+/** yyyy-MM-dd-HHmm in local time, e.g. "2026-09-07-1432" - used as a readable default token name when --name is omitted. */
+const defaultNameFormatter = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function defaultTokenName(): string {
+  const parts = Object.fromEntries(
+    defaultNameFormatter.formatToParts(new Date()).map((part) => [part.type, part.value]),
+  );
+  return `token-${parts.year}-${parts.month}-${parts.day}-${parts.hour}${parts.minute}`;
 }
 
 /**
- * pnpm --filter api cli token:create --name "recruiter-demo"
+ * pnpm token:create                    (root shortcut, defaults to a timestamped name)
+ * pnpm token:create -n "recruiter-demo"
  *
  * Runs inside Nest's DI container so it reuses ApiTokensService directly - no
  * duplicated data-access logic between the CLI and the HTTP layer (see plan §2.2
@@ -20,19 +37,14 @@ export class TokenCreateCommand extends CommandRunner {
   }
 
   async run(_inputs: string[], options: TokenCreateOptions): Promise<void> {
-    if (!options.name) {
-      consola.error("--name is required, e.g. --name \"recruiter-demo\"");
-      process.exitCode = 1;
-      return;
-    }
-
-    const { plaintext, name } = await this.apiTokensService.createToken(options.name);
+    const name = options.name || defaultTokenName();
+    const { plaintext } = await this.apiTokensService.createToken(name);
     consola.success(`Token created for "${name}"`);
     consola.box(plaintext);
     consola.warn("This is shown once. Only its hash is stored - save it somewhere safe now.");
   }
 
-  @Option({ flags: "-n, --name <name>", description: "Human-readable label for this token" })
+  @Option({ flags: "-n, --name <name>", description: "Human-readable label for this token (default: a timestamp)" })
   parseName(value: string): string {
     return value;
   }

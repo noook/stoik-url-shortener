@@ -871,6 +871,49 @@ survived the migration), edited its label via a real UI interaction and
 confirmed the PATCH persisted, and ran the full create-link flow end to
 end with the renamed field (cleaned up the test link afterward).
 
+### [Steering] Convenient token creation, including hosts with no Node/pnpm at all
+User pointed out the token-creation command was unwieldy - long, and
+`--name` was required with no shortcut - and separately asked how to issue
+tokens on a Docker host that has neither Node nor pnpm installed (their
+deploy target, `docker-host`).
+
+- `token-create.command.ts`: `--name`/`-n` is now optional. Omitting it
+  generates a readable default via `Intl.DateTimeFormat` (formatToParts,
+  matching the project's existing Intl-based date-formatting convention -
+  see `apps/web/src/lib/date-format.ts`), e.g. `token-2026-09-07-1344` -
+  a token always needs *some* identifying name in the DB, so this avoids
+  forcing the user to think one up for a quick throwaway/dev token while
+  still letting `-n` override it for anything that should be named on
+  purpose (e.g. `-n "recruiter-demo"`).
+- Added `token:create` as an actual script, not just documentation: at the
+  `apps/api` level (`node dist/cli.js token:create`, wrapping the existing
+  `cli` entry) and mirrored at the repo root
+  (`pnpm --filter api token:create`) so `pnpm token:create -n "..."` works
+  from anywhere in the repo - shorter than the old
+  `pnpm --filter api cli token:create --name "..."`.
+- New `scripts/token.sh`: a plain POSIX shell wrapper around
+  `docker compose exec api node dist/cli.js token:create`, for hosts that
+  only have Docker itself (no Node/pnpm needed at all) - directly answers
+  the docker-host question. `./scripts/token.sh` with no args works the
+  same way (timestamped default name); `./scripts/token.sh -n "demo"`
+  passes flags straight through.
+- Updated README's "Running locally" and "Running with Docker Compose"
+  sections to reflect both shortcuts, and added `scripts/` to the project
+  structure listing.
+
+Verified for real: `tsc -p tsconfig.build.json --noEmit` and
+`pnpm --filter api build` clean; ran `node dist/cli.js token:create` with
+no args (got a timestamped name) and with `-n` (name honored) directly;
+ran `pnpm token:create -n "..."` from the repo root and confirmed it
+resolves to the same command. For the Docker-host path specifically: built
+and started a full Compose stack from scratch (fresh Postgres volume, so
+this also re-validated migration 0002's rename applies cleanly on a brand
+new DB, not just the already-migrated dev DB), ran `./scripts/token.sh -n
+"..."` and `./scripts/token.sh` with no args against the live containers -
+both issued a working token - then tore the stack down and confirmed dev
+servers were unaffected. `pnpm lint`, `pnpm test` (22/22), and
+`pnpm --filter api test:e2e` (20/20) all still pass.
+
 ### [Steering] Typed per-endpoint API client, not a single generic method
 User pointed out the shared `api<T>(url, options)` pattern made every call
 site responsible for two things that should live in one place: the literal

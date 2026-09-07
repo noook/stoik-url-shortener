@@ -10,6 +10,7 @@
     "build": "pnpm --recursive --filter ./apps/* --filter ./packages/* build",
     "lint": "pnpm --recursive lint",
     "test": "pnpm --recursive test",
+    "token:create": "pnpm --filter api token:create",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down"
   }

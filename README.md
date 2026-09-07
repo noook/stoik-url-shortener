@@ -67,7 +67,7 @@ pnpm --filter api build                  # cli.js and the seed scripts run from 
 pnpm --filter api exec drizzle-kit migrate    # create the schema (reads schema.ts directly, no build needed)
 pnpm --filter api seed                   # seed 2 demo domains
 pnpm --filter api seed:links 200         # seed demo links (optional, any count)
-pnpm --filter api cli token:create --name "local-dev"   # issue a token, shown once
+pnpm token:create -n "local-dev"         # issue a token, shown once (name is optional - defaults to a timestamp)
 
 pnpm dev   # runs both apps/api (port 3000) and apps/web (port 5173) in parallel
 ```
@@ -93,6 +93,15 @@ separate migration step. Once it's up:
 ```sh
 docker compose exec api node dist/cli.js token:create --name "demo"
 docker compose exec api node dist/cli.js domain:add --hostname go1.localhost --default
+```
+
+On a host with no Node/pnpm at all (e.g. a bare Docker host), use
+`./scripts/token.sh` instead - it's a thin wrapper around the same
+`docker compose exec` call above, so it needs nothing but Docker itself:
+
+```sh
+./scripts/token.sh                      # defaults to a timestamped name
+./scripts/token.sh -n "demo"
 ```
 
 Web app is on `http://localhost:8080` by default (see `.env.example` for
@@ -141,6 +150,9 @@ apps/
 packages/
   shared/         Zod schemas + types shared front/back, ofetch-based API
                   client factory + a typed method per endpoint (api-endpoints.ts)
+scripts/
+  token.sh        Issue an API token against a running Docker Compose stack
+                  without needing Node/pnpm on the host - Docker only
 docs/
   adr/            Architecture decision records
   progress-log.md Full build history
