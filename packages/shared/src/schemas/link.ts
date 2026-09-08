@@ -67,4 +67,5 @@ export const checkAliasQuerySchema = z.object({
   domainId: z.uuid(),
   alias: shortCodeSchema,
 });
+export type CheckAliasQuery = z.infer<typeof checkAliasQuerySchema>;
 export const checkAliasResponseSchema = z.object({ available: z.boolean() });

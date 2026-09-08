@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UsePipes } from "@nestjs/common";
+import { Controller, Get, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { createSessionSchema, type SessionInfo } from "@url-shortener/shared";
+import { createSessionSchema, type CreateSessionInput, type SessionInfo } from "@url-shortener/shared";
 import { ApiTokensService } from "./api-tokens.service.js";
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE_MS } from "./auth-cookie.constants.js";
-import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { ZodBody } from "../common/zod-validation.pipe.js";
 
 @Controller("api/auth")
 export class AuthController {
@@ -17,8 +17,10 @@ export class AuthController {
    * without adding real security value for this project (see plan §2.1).
    */
   @Post("session")
-  @UsePipes(new ZodValidationPipe(createSessionSchema))
-  async login(@Body() body: { token: string }, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @ZodBody(createSessionSchema) body: CreateSessionInput,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const token = await this.apiTokensService.findActiveByPlaintext(body.token);
     if (!token) {
       throw new UnauthorizedException("Invalid or revoked token");

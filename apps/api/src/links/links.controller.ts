@@ -1,27 +1,18 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  NotFoundException,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-  UsePipes,
-} from "@nestjs/common";
+import { Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
   checkAliasQuerySchema,
   createLinkSchema,
   updateLinkSchema,
+  type CheckAliasQuery,
+  type CreateLinkInput,
   type Link,
   type LinkPage,
+  type UpdateLinkInput,
 } from "@url-shortener/shared";
 import { LinksService } from "./links.service.js";
 import { ClickEventsService } from "./click-events.service.js";
 import { ApiTokenAuthGuard } from "../auth/api-token-auth.guard.js";
-import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { ZodBody, ZodQuery } from "../common/zod-validation.pipe.js";
 
 @Controller("api/links")
 @UseGuards(ApiTokenAuthGuard)
@@ -32,9 +23,8 @@ export class LinksController {
   ) {}
 
   @Post()
-  @UsePipes(new ZodValidationPipe(createLinkSchema))
-  async create(@Body() body: unknown): Promise<Link> {
-    return this.linksService.create(body as Parameters<LinksService["create"]>[0]);
+  async create(@ZodBody(createLinkSchema) body: CreateLinkInput): Promise<Link> {
+    return this.linksService.create(body);
   }
 
   @Get()
@@ -48,8 +38,7 @@ export class LinksController {
   }
 
   @Get("check-alias")
-  @UsePipes(new ZodValidationPipe(checkAliasQuerySchema))
-  async checkAlias(@Query() query: { domainId: string; alias: string }) {
+  async checkAlias(@ZodQuery(checkAliasQuerySchema) query: CheckAliasQuery) {
     const available = await this.linksService.isAliasAvailable(query.domainId, query.alias);
     return { available };
   }
@@ -64,9 +53,9 @@ export class LinksController {
   @Patch(":id")
   async update(
     @Param("id") id: string,
-    @Body(new ZodValidationPipe(updateLinkSchema)) body: unknown,
+    @ZodBody(updateLinkSchema) body: UpdateLinkInput,
   ): Promise<Link | null> {
-    return this.linksService.update(id, body as Parameters<LinksService["update"]>[1]);
+    return this.linksService.update(id, body);
   }
 
   @Delete(":id")
