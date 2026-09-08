@@ -150,16 +150,24 @@ export class LinksService {
   }
 
   async update(id: string, input: UpdateLinkInput) {
-    const [row] = await this.db
-      .update(links)
-      .set({
-        ...(input.label !== undefined ? { label: input.label } : {}),
-        ...(input.startAt !== undefined ? { startAt: input.startAt } : {}),
-        ...(input.endAt !== undefined ? { endAt: input.endAt } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-      })
-      .where(eq(links.id, id))
-      .returning();
+    const set = {
+      ...(input.label !== undefined ? { label: input.label } : {}),
+      ...(input.startAt !== undefined ? { startAt: input.startAt } : {}),
+      ...(input.endAt !== undefined ? { endAt: input.endAt } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    };
+
+    // Drizzle/Postgres has no valid SQL for `update ... set <nothing>` - an
+    // empty `set` renders as `update links set  where ...`, a syntax error.
+    // updateLinkSchema allows an all-optional, empty {} body, so this isn't
+    // hypothetical: skip the write and just confirm the row exists.
+    if (Object.keys(set).length === 0) {
+      const existing = await this.findById(id);
+      if (!existing) throw new NotFoundException("Link not found");
+      return existing;
+    }
+
+    const [row] = await this.db.update(links).set(set).where(eq(links.id, id)).returning();
     if (!row) throw new NotFoundException("Link not found");
     return this.findById(id);
   }
