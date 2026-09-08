@@ -5,6 +5,7 @@ import { DatabaseModule } from "./database/database.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { DomainsModule } from "./domains/domains.module.js";
 import { LinksModule } from "./links/links.module.js";
+import { AdsModule } from "./ads/ads.module.js";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { LinksModule } from "./links/links.module.js";
     AuthModule,
     DomainsModule,
     LinksModule,
+    AdsModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -1057,3 +1057,67 @@ lint for this change: `packages/shared`'s `lint` script called `oxlint`
 without it ever being a declared devDependency, so `pnpm lint` at the repo
 root has been silently failing on that workspace. Added `oxlint` to
 `packages/shared`'s devDependencies to match `apps/api`'s version.
+
+## 2026-09-08
+
+### [Steering] Homepage ads requirement
+User requested homepage ads: fetched server-side by the API (private token
+never reaches the browser), one horizontal + one vertical ad requested by
+width/height per the third-party ad service's contract
+(`stoik-technical-test-js-admin.vercel.app/api/ads`, response shape
+`{id, imageUrl, link, width, height}`). Vertical placed side-rail, horizontal
+in the footer, both clickable images. Ad-service URL and token configurable
+via back-end env vars.
+
+### [Planning] Plan drafted, approved
+Saved `.hermes/plans/2026-09-08_ads-proxy-implementation.md`: new
+`AdsModule` (`GET /api/ads`) behind the existing `ApiTokenAuthGuard`,
+shared Zod schema (`packages/shared/src/schemas/ad.ts`), a frontend
+`AdSlot` component wired only into `LinksListPage` (not `AppLayout`, which
+every authenticated route shares).
+
+### [Question]/[Answer] Ad-service token and sizes
+Asked whether a real ad-service token was available - user chose to add it
+to `.env` himself rather than share it in-session. Asked for exact ad
+sizes - user specified 400x400 (vertical slot) and 800x250 (horizontal
+slot), not the IAB-standard placeholders proposed in the plan.
+
+### [Progress] Ads proxy implemented
+- `packages/shared/src/schemas/ad.ts` (`adSchema`/`adQuerySchema`), exported
+  from the barrel, `ads.get()` added to `api-endpoints.ts`.
+- `apps/api/src/ads/{ads.module,ads.controller,ads.service}.ts` - guarded
+  `GET /api/ads`, reads `ADS_API_URL` (defaults to the given endpoint) and
+  `ADS_API_TOKEN` (no default - 502 if unset) via `ConfigService`, calls
+  the upstream with native `fetch` (no new dependency needed - built-in
+  `fetch` covers this, `ofetch` wasn't already a direct `apps/api`
+  dependency), validates the response against `adSchema` before returning
+  it, collapses any upstream failure into a generic 502 so nothing from
+  the third party (including a possible token echo in an error body) leaks
+  back to the browser.
+- `ADS_API_URL`/`ADS_API_TOKEN` added to both `.env.example` files and
+  `docker-compose.yml`'s `api` service environment.
+- `apps/web/src/components/ad-slot.tsx` - `react-query`-backed, fails open
+  (renders nothing on error/loading, ads are decorative and must never
+  break the page), clickable `<img>` wrapped in an `<a target="_blank">`.
+- Wired into `LinksListPage` only: `AdSlot(800, 250)` centered in a new
+  footer under the pagination controls, `AdSlot(400, 400)` in a
+  `hidden lg:block` side rail via a `grid-cols-[1fr_400px]` wrapper - other
+  authenticated pages (create/detail) are unaffected since `AppLayout`
+  itself wasn't touched.
+- Added `apps/api/src/ads/ads.service.spec.ts` (5 unit tests, mocked
+  `fetch`): missing-token 502, token attached + width/height forwarded,
+  default-URL fallback, non-2xx upstream collapsed to 502, malformed
+  upstream shape rejected by `adSchema` and turned into a 502.
+
+Verified for real: `pnpm --filter @url-shortener/shared build`,
+`pnpm --filter @url-shortener/api build` (`nest build`), and
+`pnpm --filter web build` (`tsc -b && vite build`) all clean. Full
+`apps/api` unit suite green (18/18, incl. the 5 new ad tests). Then live
+end-to-end against the real ad service and the user's own `.env` (with the
+token he added): confirmed the real upstream contract matches what's
+implemented exactly (`?width=&height=` query params, `Authorization: ***
+header, `{id, imageUrl, link, width, height}` response) via direct `curl`;
+booted the built API locally against the existing dev Postgres container,
+confirmed `GET /api/ads` 401s with no token, 400s with missing
+width/height, and returns a real, correctly-shaped ad for both configured
+sizes (400x400 and 800x250) when called with a freshly-issued CLI token.

@@ -5,5 +5,6 @@ export * from "./schemas/link.js";
 export * from "./schemas/link-status.js";
 export * from "./schemas/click-event.js";
 export * from "./schemas/auth.js";
+export * from "./schemas/ad.js";
 export * from "./client.js";
 export * from "./api-endpoints.js";

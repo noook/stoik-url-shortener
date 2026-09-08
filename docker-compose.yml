@@ -30,6 +30,10 @@ services:
       # routed through Traefik's /api PathPrefix is same-origin with the
       # web app from the browser's point of view and isn't subject to CORS.
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      # Third-party ad service proxied by GET /api/ads - see .env.example.
+      # ADS_API_URL has a built-in default in the API itself if left unset.
+      ADS_API_URL: ${ADS_API_URL:-}
+      ADS_API_TOKEN: ${ADS_API_TOKEN:?set ADS_API_TOKEN in .env}
     ports:
       # Optional direct access for debugging/curl - the primary path is
       # through Traefik (see the `traefik` service and this service's labels).

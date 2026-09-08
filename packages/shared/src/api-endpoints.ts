@@ -8,6 +8,7 @@ import type {
 } from "./schemas/link.js";
 import type { ClickEventPage } from "./schemas/click-event.js";
 import type { CreateSessionInput, SessionInfo } from "./schemas/auth.js";
+import type { Ad } from "./schemas/ad.js";
 
 /**
  * One typed method per API endpoint, built on top of a raw `ApiClient`
@@ -59,6 +60,17 @@ export function createApiEndpoints(client: ApiClient) {
       /** GET /api/links/:id/clicks */
       listClicks: (id: string, params: { page: number; pageSize: number }) =>
         client<ClickEventPage>(`/links/${id}/clicks`, { query: params }),
+    },
+
+    ads: {
+      /**
+       * GET /api/ads - our API proxies this to a third-party ad service
+       * server-side, attaching a private token that never reaches the
+       * browser (see apps/api/src/ads). width/height request a
+       * specific creative size for the slot calling this.
+       */
+      get: (params: { width: number; height: number }) =>
+        client<Ad>("/ads", { query: params }),
     },
   };
 }
