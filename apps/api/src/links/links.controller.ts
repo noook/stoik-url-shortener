@@ -1,12 +1,14 @@
-import { Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Controller, Delete, Get, NotFoundException, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   checkAliasQuerySchema,
   createLinkSchema,
+  paginationQuerySchema,
   updateLinkSchema,
   type CheckAliasQuery,
   type CreateLinkInput,
   type Link,
   type LinkPage,
+  type PaginationQuery,
   type UpdateLinkInput,
 } from "@url-shortener/shared";
 import { LinksService } from "./links.service.js";
@@ -28,13 +30,8 @@ export class LinksController {
   }
 
   @Get()
-  async list(
-    @Query("page") pageRaw?: string,
-    @Query("pageSize") pageSizeRaw?: string,
-  ): Promise<LinkPage> {
-    const page = Math.max(1, Number.parseInt(pageRaw ?? "1", 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(pageSizeRaw ?? "20", 10) || 20));
-    return this.linksService.list(page, pageSize);
+  async list(@ZodQuery(paginationQuerySchema) query: PaginationQuery): Promise<LinkPage> {
+    return this.linksService.list(query.page, query.pageSize);
   }
 
   @Get("check-alias")
@@ -67,11 +64,8 @@ export class LinksController {
   @Get(":id/clicks")
   async clicks(
     @Param("id") id: string,
-    @Query("page") pageRaw?: string,
-    @Query("pageSize") pageSizeRaw?: string,
+    @ZodQuery(paginationQuerySchema) query: PaginationQuery,
   ) {
-    const page = Math.max(1, Number.parseInt(pageRaw ?? "1", 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(pageSizeRaw ?? "20", 10) || 20));
-    return this.clickEventsService.listForLink(id, page, pageSize);
+    return this.clickEventsService.listForLink(id, query.page, query.pageSize);
   }
 }

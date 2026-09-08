@@ -1,4 +1,5 @@
 export * from "./schemas/short-code.js";
+export * from "./schemas/pagination.js";
 export * from "./schemas/domain.js";
 export * from "./schemas/link.js";
 export * from "./schemas/link-status.js";
